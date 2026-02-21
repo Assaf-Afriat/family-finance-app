@@ -64,7 +64,7 @@ A modern, local-first desktop application for personal and family finance manage
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/family-finance-app.git
+git clone https://github.com/Assaf-Afriat/family-finance-app.git
 cd family-finance-app
 
 # Install dependencies
