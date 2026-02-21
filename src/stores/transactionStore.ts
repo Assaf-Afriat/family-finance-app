@@ -31,6 +31,15 @@ interface TransactionState {
     accountId: string
     userId: string
   }) => Promise<Transaction>
+  updateTransaction: (id: string, data: {
+    amount: number
+    date: string
+    description: string
+    category: string
+    type: string
+    ownership: string
+    accountId: string
+  }) => Promise<Transaction>
   deleteTransaction: (id: string) => Promise<void>
 }
 
@@ -78,6 +87,18 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     set((state) => ({
       transactions: [transaction, ...state.transactions],
       recentTransactions: [transaction, ...state.recentTransactions].slice(0, 5),
+    }))
+    return transaction
+  },
+
+  updateTransaction: async (id, data) => {
+    if (!window.electronAPI) {
+      throw new Error('Electron API not available')
+    }
+    const transaction = await window.electronAPI.updateTransaction(id, data)
+    set((state) => ({
+      transactions: state.transactions.map((t) => (t.id === id ? transaction : t)),
+      recentTransactions: state.recentTransactions.map((t) => (t.id === id ? transaction : t)),
     }))
     return transaction
   },

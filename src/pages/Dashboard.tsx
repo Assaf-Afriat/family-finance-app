@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Wallet, TrendingUp, TrendingDown, Target } from 'lucide-react'
 import { KPICard } from '@/components/dashboard/KPICard'
 import { IncomeExpenseChart } from '@/components/dashboard/IncomeExpenseChart'
@@ -107,6 +108,7 @@ const mockRecentTransactions: Transaction[] = [
 ]
 
 export function Dashboard() {
+  const { t } = useTranslation()
   const { currentUser } = useUserStore()
   const { stats, monthlyTrends, isLoading, fetchDashboardData } = useDashboardStore()
   const { recentTransactions, fetchRecentTransactions } = useTransactionStore()
@@ -156,15 +158,15 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t('dashboard.title')}</h1>
         <p className="text-muted-foreground">
-          {isLoading ? 'Loading...' : 'Overview of your financial health'}
+          {isLoading ? t('common.loading') : t('dashboard.subtitle')}
         </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <KPICard
-          title="Net Worth"
+          title={t('dashboard.netWorth')}
           value={formatILS(netWorth)}
           icon={Wallet}
           trend={{ value: 3.2, isPositive: true }}
@@ -172,7 +174,7 @@ export function Dashboard() {
           iconBgColor="bg-blue-100"
         />
         <KPICard
-          title="Total Income"
+          title={t('dashboard.totalIncome')}
           value={formatILS(totalIncome)}
           icon={TrendingUp}
           trend={{ value: 2.5, isPositive: true }}
@@ -180,7 +182,7 @@ export function Dashboard() {
           iconBgColor="bg-green-100"
         />
         <KPICard
-          title="Total Expenses"
+          title={t('dashboard.totalExpenses')}
           value={formatILS(totalExpenses)}
           icon={TrendingDown}
           trend={{ value: 1.8, isPositive: false }}
@@ -188,7 +190,7 @@ export function Dashboard() {
           iconBgColor="bg-red-100"
         />
         <KPICard
-          title="Remaining Budget"
+          title={t('dashboard.remainingBudget')}
           value={formatILS(remainingBudget)}
           icon={Target}
           iconColor="text-purple-600"

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { PiggyBank, Plus, Loader2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -25,6 +26,7 @@ const AVATAR_COLORS = [
 ]
 
 export function ProfileSelect() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { users, currentUser, isLoading, fetchUsers, setCurrentUser, createUser } = useUserStore()
   const [isAddUserOpen, setIsAddUserOpen] = useState(false)
@@ -81,8 +83,8 @@ export function ProfileSelect() {
           <PiggyBank className="h-7 w-7 text-primary-foreground" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold">Family Finance</h1>
-          <p className="text-sm text-muted-foreground">Who's tracking today?</p>
+          <h1 className="text-2xl font-bold">{t('app.name')}</h1>
+          <p className="text-sm text-muted-foreground">{t('profile.title')}</p>
         </div>
       </div>
 
@@ -120,7 +122,7 @@ export function ProfileSelect() {
               <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-dashed border-muted-foreground">
                 <Plus className="h-8 w-8 text-muted-foreground" />
               </div>
-              <span className="text-lg font-medium text-muted-foreground">Add Profile</span>
+              <span className="text-lg font-medium text-muted-foreground">{t('profile.createNew')}</span>
             </CardContent>
           </Card>
         </div>
@@ -137,17 +139,17 @@ export function ProfileSelect() {
       <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Family Member</DialogTitle>
+            <DialogTitle>{t('profile.createNew')}</DialogTitle>
             <DialogDescription>
-              Create a new profile for tracking finances.
+              {t('profile.enterName')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">{t('profile.yourName')}</Label>
               <Input
                 id="name"
-                placeholder="Enter name"
+                placeholder={t('validation.enterName')}
                 value={newUserName}
                 onChange={(e) => setNewUserName(e.target.value)}
                 onKeyDown={(e) => {
@@ -160,16 +162,16 @@ export function ProfileSelect() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddUserOpen(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleCreateUser} disabled={isCreating || !newUserName.trim()}>
               {isCreating ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
+                  <Loader2 className="me-2 h-4 w-4 animate-spin" />
+                  {t('profile.creating')}
                 </>
               ) : (
-                'Create Profile'
+                t('profile.createProfile')
               )}
             </Button>
           </DialogFooter>

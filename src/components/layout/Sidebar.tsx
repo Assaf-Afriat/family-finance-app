@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   LayoutDashboard,
   ArrowRightLeft,
@@ -11,23 +12,25 @@ import { cn } from '@/lib/utils'
 import { Separator } from '@/components/ui/separator'
 
 const navItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/transactions', icon: ArrowRightLeft, label: 'Transactions' },
-  { to: '/accounts', icon: Wallet, label: 'Accounts' },
-  { to: '/budgets', icon: PiggyBank, label: 'Budgets' },
-  { to: '/reports', icon: FileBarChart, label: 'Reports' },
+  { to: '/', icon: LayoutDashboard, labelKey: 'nav.dashboard' },
+  { to: '/transactions', icon: ArrowRightLeft, labelKey: 'nav.transactions' },
+  { to: '/accounts', icon: Wallet, labelKey: 'nav.accounts' },
+  { to: '/budgets', icon: PiggyBank, labelKey: 'nav.budgets' },
+  { to: '/reports', icon: FileBarChart, labelKey: 'nav.reports' },
 ]
 
 export function Sidebar() {
+  const { t } = useTranslation()
+
   return (
-    <aside className="flex h-full w-64 flex-col border-r bg-card">
+    <aside className="flex h-full w-64 flex-col border-e bg-card">
       <div className="flex h-16 items-center gap-2 px-6">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
           <PiggyBank className="h-5 w-5 text-primary-foreground" />
         </div>
         <div className="flex flex-col">
-          <span className="text-lg font-semibold">Family Finance</span>
-          <span className="text-xs text-muted-foreground">Manage your money</span>
+          <span className="text-lg font-semibold">{t('app.name')}</span>
+          <span className="text-xs text-muted-foreground">{t('app.tagline')}</span>
         </div>
       </div>
       
@@ -48,7 +51,7 @@ export function Sidebar() {
             }
           >
             <item.icon className="h-5 w-5" />
-            {item.label}
+            {t(item.labelKey)}
           </NavLink>
         ))}
       </nav>
@@ -68,7 +71,7 @@ export function Sidebar() {
           }
         >
           <Settings className="h-5 w-5" />
-          Settings
+          {t('nav.settings')}
         </NavLink>
       </div>
     </aside>

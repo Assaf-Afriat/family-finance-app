@@ -68,6 +68,26 @@ export async function createUser(data: { name: string; avatar?: string }) {
   return db.user.create({ data })
 }
 
+export async function updateUser(id: string, data: { name: string; avatar?: string }) {
+  const db = getDatabase()
+  return db.user.update({
+    where: { id },
+    data,
+  })
+}
+
+export async function deleteUser(id: string) {
+  const db = getDatabase()
+  // Delete user's transactions first
+  await db.transaction.deleteMany({ where: { userId: id } })
+  // Delete user's budgets
+  await db.budget.deleteMany({ where: { userId: id } })
+  // Delete user's accounts
+  await db.account.deleteMany({ where: { ownerId: id } })
+  // Delete user
+  return db.user.delete({ where: { id } })
+}
+
 // Account operations
 export async function getAccounts(userId?: string) {
   const db = getDatabase()
@@ -94,6 +114,23 @@ export async function updateAccountBalance(id: string, balance: number) {
   return db.account.update({
     where: { id },
     data: { balance },
+  })
+}
+
+export async function updateAccount(
+  id: string,
+  data: {
+    name: string
+    type: string
+    balance: number
+    isJoint: boolean
+  }
+) {
+  const db = getDatabase()
+  return db.account.update({
+    where: { id },
+    data,
+    include: { owner: true },
   })
 }
 
@@ -150,6 +187,47 @@ export async function createTransaction(data: {
   await db.account.update({
     where: { id: data.accountId },
     data: { balance: { increment: balanceChange } },
+  })
+
+  return transaction
+}
+
+export async function updateTransaction(
+  id: string,
+  data: {
+    amount: number
+    date: Date
+    description: string
+    category: string
+    type: string
+    ownership: string
+    accountId: string
+  }
+) {
+  const db = getDatabase()
+  
+  const oldTransaction = await db.transaction.findUnique({ where: { id } })
+  if (!oldTransaction) throw new Error('Transaction not found')
+
+  // Reverse old balance change
+  const oldBalanceChange = oldTransaction.type === 'Income' ? -oldTransaction.amount : oldTransaction.amount
+  await db.account.update({
+    where: { id: oldTransaction.accountId },
+    data: { balance: { increment: oldBalanceChange } },
+  })
+
+  // Update transaction
+  const transaction = await db.transaction.update({
+    where: { id },
+    data,
+    include: { account: true, user: true },
+  })
+
+  // Apply new balance change
+  const newBalanceChange = data.type === 'Income' ? data.amount : -data.amount
+  await db.account.update({
+    where: { id: data.accountId },
+    data: { balance: { increment: newBalanceChange } },
   })
 
   return transaction

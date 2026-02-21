@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Plus, Wallet, CreditCard, PiggyBank, Banknote, Users } from 'lucide-react'
+import { Plus, Wallet, CreditCard, PiggyBank, Banknote, Users, Pencil } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { AddAccountModal } from '@/components/accounts/AddAccountModal'
+import { EditAccountModal } from '@/components/accounts/EditAccountModal'
 import { useAccountStore } from '@/stores/accountStore'
 import { formatILS } from '@/lib/currency'
 import { cn } from '@/lib/utils'
+import { useToast } from '@/components/ui/toast'
 
 const ACCOUNT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Checking: Wallet,
@@ -23,8 +25,10 @@ const ACCOUNT_COLORS: Record<string, { bg: string; text: string }> = {
 }
 
 export function Accounts() {
-  const { accounts, isLoading, fetchAccounts } = useAccountStore()
+  const { accounts, isLoading, fetchAccounts, updateAccount } = useAccountStore()
+  const { addToast } = useToast()
   const [isAddOpen, setIsAddOpen] = useState(false)
+  const [editAccount, setEditAccount] = useState<typeof accounts[0] | null>(null)
 
   const isElectron = typeof window !== 'undefined' && window.electronAPI
 
@@ -46,6 +50,25 @@ export function Accounts() {
 
   const handleAccountAdded = () => {
     fetchAccounts()
+  }
+
+  const handleEditSave = async (data: {
+    id: string
+    name: string
+    type: string
+    balance: number
+    isJoint: boolean
+  }) => {
+    await updateAccount(data.id, {
+      name: data.name,
+      type: data.type,
+      balance: data.balance,
+      isJoint: data.isJoint,
+    })
+    addToast({
+      title: 'Account updated',
+      type: 'success',
+    })
   }
 
   const mockAccounts = [
@@ -168,6 +191,15 @@ export function Accounts() {
                       Credit card balance (debt)
                     </p>
                   )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => setEditAccount(account)}
+                  >
+                    <Pencil className="mr-2 h-3 w-3" />
+                    Edit
+                  </Button>
                 </CardContent>
               </Card>
             )
@@ -179,6 +211,13 @@ export function Accounts() {
         open={isAddOpen}
         onOpenChange={setIsAddOpen}
         onSuccess={handleAccountAdded}
+      />
+
+      <EditAccountModal
+        open={!!editAccount}
+        onOpenChange={(open) => !open && setEditAccount(null)}
+        account={editAccount}
+        onSave={handleEditSave}
       />
     </div>
   )

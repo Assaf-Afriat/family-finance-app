@@ -8,6 +8,9 @@ const electronAPI = {
   getUser: (id: string) => ipcRenderer.invoke('db:getUser', id),
   createUser: (data: { name: string; avatar?: string }) => 
     ipcRenderer.invoke('db:createUser', data),
+  updateUser: (id: string, data: { name: string; avatar?: string }) =>
+    ipcRenderer.invoke('db:updateUser', id, data),
+  deleteUser: (id: string) => ipcRenderer.invoke('db:deleteUser', id),
 
   // Accounts
   getAccounts: (userId?: string) => ipcRenderer.invoke('db:getAccounts', userId),
@@ -20,6 +23,12 @@ const electronAPI = {
   }) => ipcRenderer.invoke('db:createAccount', data),
   updateAccountBalance: (id: string, balance: number) => 
     ipcRenderer.invoke('db:updateAccountBalance', id, balance),
+  updateAccount: (id: string, data: {
+    name: string
+    type: string
+    balance: number
+    isJoint: boolean
+  }) => ipcRenderer.invoke('db:updateAccount', id, data),
 
   // Transactions
   getTransactions: (filters?: {
@@ -44,6 +53,15 @@ const electronAPI = {
     ...data,
     date: new Date(data.date),
   }),
+  updateTransaction: (id: string, data: {
+    amount: number
+    date: string
+    description: string
+    category: string
+    type: string
+    ownership: string
+    accountId: string
+  }) => ipcRenderer.invoke('db:updateTransaction', id, data),
   deleteTransaction: (id: string) => ipcRenderer.invoke('db:deleteTransaction', id),
 
   // Budgets

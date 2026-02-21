@@ -46,6 +46,14 @@ function setupIpcHandlers() {
     return db.createUser(data)
   })
 
+  ipcMain.handle('db:updateUser', async (_, id: string, data: { name: string; avatar?: string }) => {
+    return db.updateUser(id, data)
+  })
+
+  ipcMain.handle('db:deleteUser', async (_, id: string) => {
+    return db.deleteUser(id)
+  })
+
   // Accounts
   ipcMain.handle('db:getAccounts', async (_, userId?: string) => {
     return db.getAccounts(userId)
@@ -59,6 +67,10 @@ function setupIpcHandlers() {
     return db.updateAccountBalance(id, balance)
   })
 
+  ipcMain.handle('db:updateAccount', async (_, id: string, data) => {
+    return db.updateAccount(id, data)
+  })
+
   // Transactions
   ipcMain.handle('db:getTransactions', async (_, filters) => {
     return db.getTransactions(filters)
@@ -66,6 +78,10 @@ function setupIpcHandlers() {
 
   ipcMain.handle('db:createTransaction', async (_, data) => {
     return db.createTransaction(data)
+  })
+
+  ipcMain.handle('db:updateTransaction', async (_, id: string, data) => {
+    return db.updateTransaction(id, { ...data, date: new Date(data.date) })
   })
 
   ipcMain.handle('db:deleteTransaction', async (_, id: string) => {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Search, Trash2, Filter, TrendingUp, TrendingDown } from 'lucide-react'
+import { Plus, Search, Trash2, Pencil, Filter, TrendingUp, TrendingDown } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,11 +28,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { AddTransactionModal } from '@/components/transactions/AddTransactionModal'
+import { EditTransactionModal } from '@/components/transactions/EditTransactionModal'
 import { useTransactionStore } from '@/stores/transactionStore'
 import { useUserStore } from '@/stores/userStore'
 import { useDashboardStore } from '@/stores/dashboardStore'
 import { formatILS } from '@/lib/currency'
 import { cn } from '@/lib/utils'
+import { useToast } from '@/components/ui/toast'
 
 const CATEGORIES = [
   'All',
@@ -53,10 +55,12 @@ const CATEGORIES = [
 
 export function Transactions() {
   const { currentUser } = useUserStore()
-  const { transactions, isLoading, fetchTransactions, deleteTransaction } = useTransactionStore()
+  const { transactions, isLoading, fetchTransactions, updateTransaction, deleteTransaction } = useTransactionStore()
   const { fetchDashboardData } = useDashboardStore()
+  const { addToast } = useToast()
   
   const [isAddOpen, setIsAddOpen] = useState(false)
+  const [editTransaction, setEditTransaction] = useState<typeof transactions[0] | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -81,9 +85,17 @@ export function Transactions() {
       if (currentUser) {
         await fetchDashboardData(currentUser.id)
       }
+      addToast({
+        title: 'Transaction deleted',
+        type: 'success',
+      })
       setDeleteId(null)
     } catch (error) {
       console.error('Failed to delete transaction:', error)
+      addToast({
+        title: 'Failed to delete transaction',
+        type: 'error',
+      })
     } finally {
       setIsDeleting(false)
     }
@@ -91,6 +103,34 @@ export function Transactions() {
 
   const handleTransactionAdded = () => {
     fetchTransactions()
+  }
+
+  const handleEditSave = async (data: {
+    id: string
+    amount: number
+    date: string
+    description: string
+    category: string
+    type: string
+    ownership: string
+    accountId: string
+  }) => {
+    await updateTransaction(data.id, {
+      amount: data.amount,
+      date: data.date,
+      description: data.description,
+      category: data.category,
+      type: data.type,
+      ownership: data.ownership,
+      accountId: data.accountId,
+    })
+    if (currentUser) {
+      await fetchDashboardData(currentUser.id)
+    }
+    addToast({
+      title: 'Transaction updated',
+      type: 'success',
+    })
   }
 
   const filteredTransactions = transactions.filter((t) => {
@@ -287,13 +327,22 @@ export function Transactions() {
                       {transaction.type === 'Income' ? '+' : '-'}{formatILS(transaction.amount)}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setDeleteId(transaction.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setEditTransaction(transaction)}
+                        >
+                          <Pencil className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeleteId(transaction.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -307,6 +356,13 @@ export function Transactions() {
         open={isAddOpen}
         onOpenChange={setIsAddOpen}
         onSuccess={handleTransactionAdded}
+      />
+
+      <EditTransactionModal
+        open={!!editTransaction}
+        onOpenChange={(open) => !open && setEditTransaction(null)}
+        transaction={editTransaction}
+        onSave={handleEditSave}
       />
 
       <Dialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>

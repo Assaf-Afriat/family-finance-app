@@ -14,6 +14,12 @@ interface AccountState {
     ownerId: string
   }) => Promise<Account>
   updateBalance: (id: string, balance: number) => Promise<void>
+  updateAccount: (id: string, data: {
+    name: string
+    type: string
+    balance: number
+    isJoint: boolean
+  }) => Promise<Account>
 }
 
 export const useAccountStore = create<AccountState>((set) => ({
@@ -54,5 +60,16 @@ export const useAccountStore = create<AccountState>((set) => ({
     set((state) => ({
       accounts: state.accounts.map((a) => (a.id === id ? updated : a)),
     }))
+  },
+
+  updateAccount: async (id, data) => {
+    if (!window.electronAPI) {
+      throw new Error('Electron API not available')
+    }
+    const updated = await window.electronAPI.updateAccount(id, data)
+    set((state) => ({
+      accounts: state.accounts.map((a) => (a.id === id ? updated : a)),
+    }))
+    return updated
   },
 }))

@@ -18,17 +18,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useUserStore } from '@/stores/userStore'
 import { useAccountStore } from '@/stores/accountStore'
-import { useTransactionStore } from '@/stores/transactionStore'
-import { useDashboardStore } from '@/stores/dashboardStore'
-import { useToast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 
-interface AddTransactionModalProps {
+interface EditTransactionModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSuccess?: () => void
+  transaction: {
+    id: string
+    amount: number
+    date: string
+    description: string
+    category: string
+    type: string
+    ownership: string
+    accountId: string
+  } | null
+  onSave: (data: {
+    id: string
+    amount: number
+    date: string
+    description: string
+    category: string
+    type: string
+    ownership: string
+    accountId: string
+  }) => Promise<void>
 }
 
 const EXPENSE_CATEGORIES = [
@@ -52,16 +67,13 @@ const INCOME_CATEGORIES = [
   'Other Income',
 ]
 
-export function AddTransactionModal({
+export function EditTransactionModal({
   open,
   onOpenChange,
-  onSuccess,
-}: AddTransactionModalProps) {
-  const { currentUser } = useUserStore()
+  transaction,
+  onSave,
+}: EditTransactionModalProps) {
   const { accounts, fetchAccounts } = useAccountStore()
-  const { createTransaction } = useTransactionStore()
-  const { fetchDashboardData } = useDashboardStore()
-  const { addToast } = useToast()
 
   const [type, setType] = useState<'Expense' | 'Income'>('Expense')
   const [amount, setAmount] = useState('')
@@ -69,7 +81,7 @@ export function AddTransactionModal({
   const [category, setCategory] = useState('')
   const [accountId, setAccountId] = useState('')
   const [ownership, setOwnership] = useState<'Personal' | 'Joint'>('Personal')
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+  const [date, setDate] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -80,14 +92,16 @@ export function AddTransactionModal({
   }, [open, fetchAccounts])
 
   useEffect(() => {
-    if (accounts.length > 0 && !accountId) {
-      setAccountId(accounts[0].id)
+    if (transaction) {
+      setType(transaction.type as 'Expense' | 'Income')
+      setAmount(transaction.amount.toString())
+      setDescription(transaction.description)
+      setCategory(transaction.category)
+      setAccountId(transaction.accountId)
+      setOwnership(transaction.ownership as 'Personal' | 'Joint')
+      setDate(new Date(transaction.date).toISOString().split('T')[0])
     }
-  }, [accounts, accountId])
-
-  useEffect(() => {
-    setCategory('')
-  }, [type])
+  }, [transaction])
 
   const categories = type === 'Expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES
 
@@ -95,10 +109,7 @@ export function AddTransactionModal({
     e.preventDefault()
     setError('')
 
-    if (!currentUser) {
-      setError('No user selected')
-      return
-    }
+    if (!transaction) return
 
     if (!amount || parseFloat(amount) <= 0) {
       setError('Please enter a valid amount')
@@ -118,7 +129,8 @@ export function AddTransactionModal({
     setIsSubmitting(true)
 
     try {
-      await createTransaction({
+      await onSave({
+        id: transaction.id,
         amount: parseFloat(amount),
         date: new Date(date).toISOString(),
         description: description || category,
@@ -126,30 +138,12 @@ export function AddTransactionModal({
         type,
         ownership,
         accountId,
-        userId: currentUser.id,
-      })
-
-      // Refresh dashboard data
-      await fetchDashboardData(currentUser.id)
-
-      // Reset form
-      setAmount('')
-      setDescription('')
-      setCategory('')
-      setOwnership('Personal')
-      setDate(new Date().toISOString().split('T')[0])
-
-      addToast({
-        title: 'Transaction added',
-        description: `${type} of ₪${amount} has been recorded.`,
-        type: 'success',
       })
 
       onOpenChange(false)
-      onSuccess?.()
     } catch (err) {
-      console.error('Failed to create transaction:', err)
-      setError('Failed to create transaction. Please try again.')
+      console.error('Failed to update transaction:', err)
+      setError('Failed to update transaction. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -159,9 +153,9 @@ export function AddTransactionModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add Transaction</DialogTitle>
+          <DialogTitle>Edit Transaction</DialogTitle>
           <DialogDescription>
-            Record a new income or expense transaction.
+            Update the transaction details.
           </DialogDescription>
         </DialogHeader>
 
@@ -174,7 +168,10 @@ export function AddTransactionModal({
                 'flex-1',
                 type === 'Expense' && 'bg-red-600 hover:bg-red-700'
               )}
-              onClick={() => setType('Expense')}
+              onClick={() => {
+                setType('Expense')
+                setCategory('')
+              }}
             >
               <TrendingDown className="mr-2 h-4 w-4" />
               Expense
@@ -186,7 +183,10 @@ export function AddTransactionModal({
                 'flex-1',
                 type === 'Income' && 'bg-green-600 hover:bg-green-700'
               )}
-              onClick={() => setType('Income')}
+              onClick={() => {
+                setType('Income')
+                setCategory('')
+              }}
             >
               <TrendingUp className="mr-2 h-4 w-4" />
               Income
@@ -224,7 +224,7 @@ export function AddTransactionModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description (optional)</Label>
+            <Label htmlFor="description">Description</Label>
             <Input
               id="description"
               placeholder="Enter description"
@@ -290,7 +290,7 @@ export function AddTransactionModal({
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Adding...' : 'Add Transaction'}
+              {isSubmitting ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </form>
