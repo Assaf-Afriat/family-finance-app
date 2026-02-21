@@ -14,6 +14,7 @@ A modern, local-first desktop application for personal and family finance manage
 - **Profile Selection** - Switch between family members on launch
 - **Personal & Joint Tracking** - Tag transactions and accounts as personal or shared
 - **Individual Dashboards** - Each user sees their own financial overview
+- **Edit & Delete Profiles** - Manage family member profiles in settings
 
 ### Dashboard
 - **KPI Cards** - Net worth, monthly income, expenses, and remaining budget at a glance
@@ -25,11 +26,13 @@ A modern, local-first desktop application for personal and family finance manage
 ### Transaction Management
 - **Full Transaction History** - View all income and expenses
 - **Smart Filters** - Filter by type, category, ownership, and search
-- **Quick Add** - Add transactions with category, amount, and date
+- **Add & Edit Transactions** - Full CRUD support with category, amount, and date
 - **Delete with Confirmation** - Remove transactions safely
+- **Toast Notifications** - Instant feedback on all actions
 
 ### Account Management
-- **Multiple Account Types** - Checking, Savings, Credit Cards, Cash
+- **Multiple Account Types** - Checking, Savings, Credit Cards, Cash, Investment
+- **Add & Edit Accounts** - Full account management
 - **Balance Tracking** - Automatic balance updates with transactions
 - **Joint Accounts** - Mark accounts as shared between family members
 - **Net Worth Calculation** - Assets minus liabilities
@@ -39,6 +42,22 @@ A modern, local-first desktop application for personal and family finance manage
 - **Visual Progress** - Color-coded progress bars (green/amber/red)
 - **Status Indicators** - "On Track", "Near Limit", "Over Budget" badges
 - **Monthly Reset** - Budgets automatically reset each month
+
+### Dark Mode & Themes
+- **Light / Dark / System** - Choose your preferred theme
+- **Persistent Preference** - Theme saved across sessions
+- **System Theme Detection** - Automatically match OS preference
+
+### Multi-Language Support (i18n)
+- **English** - Full English interface
+- **עברית (Hebrew)** - Complete Hebrew translation with RTL support
+- **Persistent Language** - Preference saved across sessions
+- **Easy Switching** - Change language anytime from settings
+
+### Data Management
+- **CSV Export** - Export all transactions to CSV
+- **Local Storage** - All data stays on your computer
+- **No Cloud Required** - Complete privacy
 
 ## Tech Stack
 
@@ -51,6 +70,7 @@ A modern, local-first desktop application for personal and family finance manage
 | **Charts** | Recharts |
 | **Database** | SQLite (local) + Prisma ORM |
 | **State** | Zustand |
+| **i18n** | react-i18next |
 | **Currency** | ILS (₪) |
 
 ## Getting Started
@@ -115,12 +135,14 @@ family-finance-app/
 │   ├── components/
 │   │   ├── layout/       # Sidebar, Header, MainLayout
 │   │   ├── dashboard/    # KPI cards, charts, widgets
-│   │   ├── transactions/ # Transaction modals
-│   │   ├── accounts/     # Account modals
+│   │   ├── transactions/ # Add/Edit transaction modals
+│   │   ├── accounts/     # Add/Edit account modals
+│   │   ├── shared/       # Theme toggle, Language selector
 │   │   └── ui/           # shadcn/ui components
 │   ├── pages/            # Route pages
 │   ├── stores/           # Zustand state stores
-│   ├── lib/              # Utilities (currency, etc.)
+│   ├── locales/          # Translation files (en.json, he.json)
+│   ├── lib/              # Utilities (currency, i18n, etc.)
 │   └── types/            # TypeScript interfaces
 ├── package.json
 ├── vite.config.ts
@@ -133,13 +155,16 @@ family-finance-app/
 View your financial health at a glance with KPIs, charts, and recent activity.
 
 ### Transactions
-Full transaction history with search and filters.
+Full transaction history with search, filters, and edit functionality.
 
 ### Accounts
 Manage bank accounts, credit cards, and cash with balance tracking.
 
 ### Budgets
 Set and track monthly spending limits by category.
+
+### Settings
+Manage profiles, themes, language, and export data.
 
 ## Privacy & Security
 
@@ -150,13 +175,18 @@ Set and track monthly spending limits by category.
 
 ## Roadmap
 
-- [ ] Dark mode toggle
-- [ ] Data export (CSV/PDF)
+- [x] Dark mode toggle
+- [x] Edit transactions & accounts
+- [x] Toast notifications
+- [x] Hebrew language support (RTL)
+- [x] CSV data export
 - [ ] Recurring transactions
 - [ ] Bill reminders
 - [ ] Multiple currencies
 - [ ] Reports page with detailed analytics
+- [ ] PDF export
 - [ ] Data backup/restore
+- [ ] Production build & installer
 
 ## License
 
