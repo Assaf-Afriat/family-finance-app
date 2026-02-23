@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, Search, Trash2, Pencil, Filter, TrendingUp, TrendingDown } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -35,6 +36,9 @@ import { useDashboardStore } from '@/stores/dashboardStore'
 import { formatILS } from '@/lib/currency'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/toast'
+import { useShortcutListener } from '@/hooks/useKeyboardShortcuts'
+import { TransactionsSkeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/shared/EmptyState'
 
 const CATEGORIES = [
   'All',
@@ -54,6 +58,7 @@ const CATEGORIES = [
 ]
 
 export function Transactions() {
+  const { t } = useTranslation()
   const { currentUser } = useUserStore()
   const { transactions, isLoading, fetchTransactions, updateTransaction, deleteTransaction } = useTransactionStore()
   const { fetchDashboardData } = useDashboardStore()
@@ -68,6 +73,8 @@ export function Transactions() {
   const [categoryFilter, setCategoryFilter] = useState<string>('All')
   const [ownershipFilter, setOwnershipFilter] = useState<string>('All')
 
+  useShortcutListener('shortcut:new-transaction', () => setIsAddOpen(true))
+
   const isElectron = typeof window !== 'undefined' && window.electronAPI
 
   useEffect(() => {
@@ -79,21 +86,55 @@ export function Transactions() {
   const handleDelete = async () => {
     if (!deleteId) return
     
+    const transactionToDelete = transactions.find((t) => t.id === deleteId)
+    
     setIsDeleting(true)
     try {
       await deleteTransaction(deleteId)
       if (currentUser) {
         await fetchDashboardData(currentUser.id)
       }
-      addToast({
-        title: 'Transaction deleted',
-        type: 'success',
-      })
       setDeleteId(null)
+      
+      addToast({
+        title: t('toast.transactionDeleted'),
+        type: 'success',
+        action: transactionToDelete ? {
+          label: t('common.undo'),
+          onClick: async () => {
+            try {
+              if (window.electronAPI && currentUser) {
+                await window.electronAPI.createTransaction({
+                  amount: transactionToDelete.amount,
+                  date: new Date(transactionToDelete.date).toISOString(),
+                  description: transactionToDelete.description,
+                  category: transactionToDelete.category,
+                  type: transactionToDelete.type,
+                  ownership: transactionToDelete.ownership,
+                  accountId: transactionToDelete.accountId,
+                  userId: currentUser.id,
+                })
+                await fetchTransactions()
+                await fetchDashboardData(currentUser.id)
+                addToast({
+                  title: t('toast.transactionRestored'),
+                  type: 'success',
+                })
+              }
+            } catch (err) {
+              console.error('Failed to restore transaction:', err)
+              addToast({
+                title: t('toast.restoreFailed'),
+                type: 'error',
+              })
+            }
+          },
+        } : undefined,
+      })
     } catch (error) {
       console.error('Failed to delete transaction:', error)
       addToast({
-        title: 'Failed to delete transaction',
+        title: t('toast.deleteFailed'),
         type: 'error',
       })
     } finally {
@@ -157,6 +198,10 @@ export function Transactions() {
       month: 'short',
       day: 'numeric',
     })
+  }
+
+  if (isLoading && isElectron) {
+    return <TransactionsSkeleton />
   }
 
   return (
@@ -281,12 +326,14 @@ export function Transactions() {
               Loading transactions...
             </div>
           ) : filteredTransactions.length === 0 ? (
-            <div className="flex h-[400px] flex-col items-center justify-center text-muted-foreground">
-              <p>No transactions found</p>
-              <Button variant="link" onClick={() => setIsAddOpen(true)}>
-                Add your first transaction
-              </Button>
-            </div>
+            <EmptyState
+              type="transactions"
+              action={{
+                label: t('common.addTransaction'),
+                onClick: () => setIsAddOpen(true),
+              }}
+              className="min-h-[400px] border-0"
+            />
           ) : (
             <Table>
               <TableHeader>

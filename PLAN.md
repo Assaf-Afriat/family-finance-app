@@ -113,39 +113,40 @@ A local-first desktop application for personal and family finance management bui
 
 ## Pending Features 📋
 
-### Phase 13: Reports Page
-- [ ] Monthly summary report
-- [ ] Yearly summary report
-- [ ] Income breakdown by category
-- [ ] Expense breakdown by category
-- [ ] Spending trends over time
-- [ ] Budget compliance history
-- [ ] Net worth over time chart
+### Phase 13: Reports Page ✅
+- [x] Monthly summary report
+- [x] Yearly summary report
+- [x] Income breakdown by category
+- [x] Expense breakdown by category
+- [x] Spending trends over time (monthly bar chart)
+- [x] Cumulative cash flow chart
+- [x] Top spending categories with progress bars
+- [x] Period selector (This Month, 3/6 Months, Year, All Time)
 
 ### Phase 14: Advanced Features
-- [ ] Recurring transactions
-- [ ] Bill reminders / due dates
-- [ ] Transaction categories management (add/edit/delete)
+- [x] Edit budget limit
+- [x] Recurring transactions (CRUD + auto-processing)
+- [x] Transfer between accounts
+- [x] User avatar selection (emoji or initials color)
+- [x] Transaction categories management (add/edit/delete custom categories)
+- [x] Bill reminders / due dates (new Bills page with tracking)
 - [ ] Multiple currencies support
 - [ ] Currency conversion
-- [ ] Transfer between accounts
 - [ ] Account reconciliation
-- [ ] Edit budget limit
-- [ ] User avatar selection (emoji or initials color)
 
-### Phase 15: Data Management
-- [ ] Export monthly report to PDF
-- [ ] Backup database file
-- [ ] Restore from backup
-- [ ] Import transactions from CSV
+### Phase 15: Data Management ✅
+- [x] Export monthly report to PDF
+- [x] Backup database file
+- [x] Restore from backup
+- [x] Import transactions from CSV
 
 ### Phase 16: Additional UX
-- [ ] Keyboard shortcuts
-- [ ] Loading skeletons
-- [ ] Empty state illustrations
-- [ ] Undo delete action
+- [x] Keyboard shortcuts (Ctrl+D/T/A/B/R/,/N for navigation and new transaction)
+- [x] Loading skeletons (Dashboard, Transactions, Accounts, Budgets, Reports)
+- [x] Empty state illustrations (with translations)
+- [x] Quick add from dashboard
+- [x] Undo delete action (with toast action button)
 - [ ] Drag and drop for transactions
-- [ ] Quick add from dashboard
 
 ### Phase 17: Production Build
 - [ ] Enable Windows Developer Mode (for symlinks)
@@ -166,10 +167,10 @@ A local-first desktop application for personal and family finance management bui
 
 ## Technical Debt 🔧
 
-- [ ] Add error boundaries
-- [ ] Add loading states to all async operations
+- [x] Add error boundaries (root + per-page error boundaries)
+- [x] Add loading states to all async operations (loading skeletons)
 - [ ] Optimize database queries (use transactions)
-- [ ] Add input validation with Zod
+- [x] Add input validation with Zod (validations.ts with schemas)
 - [ ] Add unit tests
 - [ ] Add E2E tests with Playwright
 - [ ] Migrate to ESM Vite config
@@ -180,9 +181,12 @@ A local-first desktop application for personal and family finance management bui
 ## Priority Order (Remaining)
 
 ### High Priority
-1. Reports page with basic charts
-2. Edit budget functionality
-3. Recurring transactions
+1. ~~Reports page with basic charts~~ ✅
+2. ~~Edit budget functionality~~ ✅
+3. ~~Recurring transactions~~ ✅
+4. ~~PDF export~~ ✅
+5. ~~Database backup & restore~~ ✅
+6. ~~CSV import~~ ✅
 
 ### Medium Priority
 1. PDF export

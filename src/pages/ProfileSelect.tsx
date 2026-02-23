@@ -15,15 +15,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useUserStore } from '@/stores/userStore'
-
-const AVATAR_COLORS = [
-  'bg-blue-500',
-  'bg-purple-500',
-  'bg-green-500',
-  'bg-orange-500',
-  'bg-pink-500',
-  'bg-cyan-500',
-]
+import { AvatarSelector, AvatarDisplay } from '@/components/shared/AvatarSelector'
 
 export function ProfileSelect() {
   const { t } = useTranslation()
@@ -31,6 +23,7 @@ export function ProfileSelect() {
   const { users, currentUser, isLoading, fetchUsers, setCurrentUser, createUser } = useUserStore()
   const [isAddUserOpen, setIsAddUserOpen] = useState(false)
   const [newUserName, setNewUserName] = useState('')
+  const [newUserAvatar, setNewUserAvatar] = useState('blue')
   const [isCreating, setIsCreating] = useState(false)
 
   const isElectron = typeof window !== 'undefined' && window.electronAPI
@@ -57,10 +50,11 @@ export function ProfileSelect() {
 
     setIsCreating(true)
     try {
-      const user = await createUser(newUserName.trim())
+      const user = await createUser(newUserName.trim(), newUserAvatar)
       setCurrentUser(user)
       setIsAddUserOpen(false)
       setNewUserName('')
+      setNewUserAvatar('blue')
       navigate('/')
     } catch (error) {
       console.error('Failed to create user:', error)
@@ -102,13 +96,11 @@ export function ProfileSelect() {
               onClick={() => handleSelectProfile(user)}
             >
               <CardContent className="flex flex-col items-center gap-4 p-8">
-                <div
-                  className={`flex h-20 w-20 items-center justify-center rounded-full ${
-                    AVATAR_COLORS[index % AVATAR_COLORS.length]
-                  } text-3xl font-bold text-white`}
-                >
-                  {user.name.charAt(0).toUpperCase()}
-                </div>
+                <AvatarDisplay 
+                  avatar={user.avatar} 
+                  name={user.name} 
+                  size="xl" 
+                />
                 <span className="text-lg font-medium">{user.name}</span>
               </CardContent>
             </Card>
@@ -159,6 +151,12 @@ export function ProfileSelect() {
                 }}
               />
             </div>
+            <AvatarSelector
+              value={newUserAvatar}
+              onChange={setNewUserAvatar}
+              name={newUserName}
+              size="md"
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddUserOpen(false)}>

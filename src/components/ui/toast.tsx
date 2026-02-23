@@ -2,16 +2,23 @@ import * as React from 'react'
 import { cn } from '@/lib/utils'
 import { X } from 'lucide-react'
 
+interface ToastAction {
+  label: string
+  onClick: () => void
+}
+
 interface Toast {
   id: string
   title: string
   description?: string
   type?: 'success' | 'error' | 'info'
+  action?: ToastAction
+  duration?: number
 }
 
 interface ToastContextValue {
   toasts: Toast[]
-  addToast: (toast: Omit<Toast, 'id'>) => void
+  addToast: (toast: Omit<Toast, 'id'>) => string
   removeToast: (id: string) => void
 }
 
@@ -19,17 +26,28 @@ const ToastContext = React.createContext<ToastContextValue | undefined>(undefine
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = React.useState<Toast[]>([])
+  const timeoutRefs = React.useRef<Map<string, NodeJS.Timeout>>(new Map())
 
   const addToast = React.useCallback((toast: Omit<Toast, 'id'>) => {
     const id = Math.random().toString(36).substring(2, 9)
     setToasts((prev) => [...prev, { ...toast, id }])
 
-    setTimeout(() => {
+    const duration = toast.duration ?? (toast.action ? 8000 : 4000)
+    const timeout = setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id))
-    }, 4000)
+      timeoutRefs.current.delete(id)
+    }, duration)
+    
+    timeoutRefs.current.set(id, timeout)
+    return id
   }, [])
 
   const removeToast = React.useCallback((id: string) => {
+    const timeout = timeoutRefs.current.get(id)
+    if (timeout) {
+      clearTimeout(timeout)
+      timeoutRefs.current.delete(id)
+    }
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
@@ -72,6 +90,17 @@ function ToastContainer({
             <p className="font-medium text-sm">{toast.title}</p>
             {toast.description && (
               <p className="text-sm text-muted-foreground mt-1">{toast.description}</p>
+            )}
+            {toast.action && (
+              <button
+                onClick={() => {
+                  toast.action?.onClick()
+                  removeToast(toast.id)
+                }}
+                className="mt-2 text-sm font-medium text-primary hover:underline"
+              >
+                {toast.action.label}
+              </button>
             )}
           </div>
           <button

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import path from 'path'
 import * as db from './database'
 
@@ -88,6 +88,13 @@ function setupIpcHandlers() {
     return db.deleteTransaction(id)
   })
 
+  ipcMain.handle('db:createTransfer', async (_, data) => {
+    return db.createTransfer({
+      ...data,
+      date: new Date(data.date),
+    })
+  })
+
   // Budgets
   ipcMain.handle('db:getBudgets', async (_, userId: string, month?: number, year?: number) => {
     return db.getBudgets(userId, month, year)
@@ -97,9 +104,42 @@ function setupIpcHandlers() {
     return db.createOrUpdateBudget(data)
   })
 
+  ipcMain.handle('db:deleteBudget', async (_, id: string) => {
+    return db.deleteBudget(id)
+  })
+
   // Categories
   ipcMain.handle('db:getCategories', async (_, type?: string) => {
     return db.getCategories(type)
+  })
+
+  // Recurring Transactions
+  ipcMain.handle('db:getRecurringTransactions', async (_, userId?: string) => {
+    return db.getRecurringTransactions(userId)
+  })
+
+  ipcMain.handle('db:createRecurringTransaction', async (_, data) => {
+    return db.createRecurringTransaction({
+      ...data,
+      startDate: new Date(data.startDate),
+      endDate: data.endDate ? new Date(data.endDate) : null,
+    })
+  })
+
+  ipcMain.handle('db:updateRecurringTransaction', async (_, id: string, data) => {
+    return db.updateRecurringTransaction(id, {
+      ...data,
+      startDate: new Date(data.startDate),
+      endDate: data.endDate ? new Date(data.endDate) : null,
+    })
+  })
+
+  ipcMain.handle('db:deleteRecurringTransaction', async (_, id: string) => {
+    return db.deleteRecurringTransaction(id)
+  })
+
+  ipcMain.handle('db:processRecurringTransactions', async (_, userId: string) => {
+    return db.processRecurringTransactions(userId)
   })
 
   // Dashboard
@@ -109,6 +149,89 @@ function setupIpcHandlers() {
 
   ipcMain.handle('db:getMonthlyTrends', async (_, userId: string, months?: number) => {
     return db.getMonthlyTrends(userId, months)
+  })
+
+  // Bills
+  ipcMain.handle('db:getBills', async (_, userId: string) => {
+    return db.getBills(userId)
+  })
+
+  ipcMain.handle('db:createBill', async (_, data) => {
+    return db.createBill({
+      ...data,
+      dueDate: new Date(data.dueDate),
+    })
+  })
+
+  ipcMain.handle('db:updateBill', async (_, id: string, data) => {
+    return db.updateBill(id, {
+      ...data,
+      dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+      paidDate: data.paidDate ? new Date(data.paidDate) : data.paidDate,
+    })
+  })
+
+  ipcMain.handle('db:deleteBill', async (_, id: string) => {
+    return db.deleteBill(id)
+  })
+
+  ipcMain.handle('db:markBillPaid', async (_, id: string) => {
+    return db.markBillPaid(id)
+  })
+
+  ipcMain.handle('db:getUpcomingBills', async (_, userId: string, days?: number) => {
+    return db.getUpcomingBills(userId, days)
+  })
+
+  ipcMain.handle('db:getOverdueBills', async (_, userId: string) => {
+    return db.getOverdueBills(userId)
+  })
+
+  // Backup and Restore
+  ipcMain.handle('db:backupDatabase', async () => {
+    const mainWindow = BrowserWindow.getFocusedWindow()
+    if (!mainWindow) return { success: false, error: 'No window' }
+
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Backup Database',
+      defaultPath: `family-finance-backup-${new Date().toISOString().split('T')[0]}.db`,
+      filters: [{ name: 'Database', extensions: ['db'] }],
+    })
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true }
+    }
+
+    try {
+      await db.backupDatabase(result.filePath)
+      return { success: true, path: result.filePath }
+    } catch (error) {
+      console.error('Backup failed:', error)
+      return { success: false, error: String(error) }
+    }
+  })
+
+  ipcMain.handle('db:restoreDatabase', async () => {
+    const mainWindow = BrowserWindow.getFocusedWindow()
+    if (!mainWindow) return { success: false, error: 'No window' }
+
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Restore Database',
+      filters: [{ name: 'Database', extensions: ['db'] }],
+      properties: ['openFile'],
+    })
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { success: false, canceled: true }
+    }
+
+    try {
+      await db.restoreDatabase(result.filePaths[0])
+      return { success: true, path: result.filePaths[0] }
+    } catch (error) {
+      console.error('Restore failed:', error)
+      return { success: false, error: String(error) }
+    }
   })
 }
 

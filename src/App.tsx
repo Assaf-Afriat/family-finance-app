@@ -8,10 +8,19 @@ import { Transactions } from '@/pages/Transactions'
 import { Accounts } from '@/pages/Accounts'
 import { Budgets } from '@/pages/Budgets'
 import { Reports } from '@/pages/Reports'
+import { RecurringTransactions } from '@/pages/RecurringTransactions'
+import { Bills } from '@/pages/Bills'
 import { Settings } from '@/pages/Settings'
 import { ProfileSelect } from '@/pages/ProfileSelect'
 import { useUserStore } from '@/stores/userStore'
 import { useThemeStore } from '@/stores/themeStore'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
+import { ErrorBoundary, PageErrorBoundary } from '@/components/shared/ErrorBoundary'
+
+function KeyboardShortcutsProvider({ children }: { children: React.ReactNode }) {
+  useKeyboardShortcuts()
+  return <>{children}</>
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { currentUser } = useUserStore()
@@ -68,26 +77,32 @@ export default function App() {
   }, [fetchUsers, currentUser, setCurrentUser])
 
   return (
-    <ToastProvider>
-      <TooltipProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/profile-select" element={<ProfileSelect />} />
-            <Route element={
-              <ProtectedRoute>
-                <MainLayout />
-              </ProtectedRoute>
-            }>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/transactions" element={<Transactions />} />
-              <Route path="/accounts" element={<Accounts />} />
-              <Route path="/budgets" element={<Budgets />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/settings" element={<Settings />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </ToastProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <TooltipProvider>
+          <BrowserRouter>
+            <KeyboardShortcutsProvider>
+            <Routes>
+              <Route path="/profile-select" element={<ProfileSelect />} />
+              <Route element={
+                <ProtectedRoute>
+                  <MainLayout />
+                </ProtectedRoute>
+              }>
+<Route path="/" element={<PageErrorBoundary pageName="Dashboard"><Dashboard /></PageErrorBoundary>} />
+              <Route path="/transactions" element={<PageErrorBoundary pageName="Transactions"><Transactions /></PageErrorBoundary>} />
+              <Route path="/accounts" element={<PageErrorBoundary pageName="Accounts"><Accounts /></PageErrorBoundary>} />
+              <Route path="/budgets" element={<PageErrorBoundary pageName="Budgets"><Budgets /></PageErrorBoundary>} />
+              <Route path="/recurring" element={<PageErrorBoundary pageName="Recurring Transactions"><RecurringTransactions /></PageErrorBoundary>} />
+              <Route path="/bills" element={<PageErrorBoundary pageName="Bills"><Bills /></PageErrorBoundary>} />
+              <Route path="/reports" element={<PageErrorBoundary pageName="Reports"><Reports /></PageErrorBoundary>} />
+              <Route path="/settings" element={<PageErrorBoundary pageName="Settings"><Settings /></PageErrorBoundary>} />
+              </Route>
+            </Routes>
+          </KeyboardShortcutsProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </ToastProvider>
+    </ErrorBoundary>
   )
 }

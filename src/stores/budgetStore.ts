@@ -13,6 +13,7 @@ interface BudgetState {
     year: number
     userId: string
   }) => Promise<Budget>
+  deleteBudget: (id: string) => Promise<void>
 }
 
 export const useBudgetStore = create<BudgetState>((set) => ({
@@ -53,5 +54,15 @@ export const useBudgetStore = create<BudgetState>((set) => ({
       return { budgets: [...state.budgets, budget] }
     })
     return budget
+  },
+
+  deleteBudget: async (id: string) => {
+    if (!window.electronAPI) {
+      throw new Error('Electron API not available')
+    }
+    await window.electronAPI.deleteBudget(id)
+    set((state) => ({
+      budgets: state.budgets.filter((b) => b.id !== id),
+    }))
   },
 }))

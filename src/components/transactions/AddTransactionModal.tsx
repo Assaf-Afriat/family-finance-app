@@ -24,6 +24,7 @@ import { useTransactionStore } from '@/stores/transactionStore'
 import { useDashboardStore } from '@/stores/dashboardStore'
 import { useToast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
+import { transactionSchema, validateForm } from '@/lib/validations'
 
 interface AddTransactionModalProps {
   open: boolean
@@ -100,18 +101,20 @@ export function AddTransactionModal({
       return
     }
 
-    if (!amount || parseFloat(amount) <= 0) {
-      setError('Please enter a valid amount')
-      return
+    const formData = {
+      amount: parseFloat(amount) || 0,
+      date,
+      description: description || category,
+      category,
+      type,
+      ownership,
+      accountId,
     }
 
-    if (!category) {
-      setError('Please select a category')
-      return
-    }
-
-    if (!accountId) {
-      setError('Please select an account')
+    const validation = validateForm(transactionSchema, formData)
+    if (!validation.success) {
+      const firstError = Object.values(validation.errors)[0]
+      setError(firstError)
       return
     }
 
@@ -119,13 +122,8 @@ export function AddTransactionModal({
 
     try {
       await createTransaction({
-        amount: parseFloat(amount),
-        date: new Date(date).toISOString(),
-        description: description || category,
-        category,
-        type,
-        ownership,
-        accountId,
+        ...validation.data,
+        date: new Date(validation.data.date).toISOString(),
         userId: currentUser.id,
       })
 

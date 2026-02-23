@@ -7,20 +7,27 @@ import {
   PiggyBank,
   FileBarChart,
   Settings,
+  Repeat,
+  Receipt,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Separator } from '@/components/ui/separator'
+import { useUserStore } from '@/stores/userStore'
+import { AvatarDisplay } from '@/components/shared/AvatarSelector'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, labelKey: 'nav.dashboard' },
   { to: '/transactions', icon: ArrowRightLeft, labelKey: 'nav.transactions' },
   { to: '/accounts', icon: Wallet, labelKey: 'nav.accounts' },
   { to: '/budgets', icon: PiggyBank, labelKey: 'nav.budgets' },
+  { to: '/recurring', icon: Repeat, labelKey: 'nav.recurring' },
+  { to: '/bills', icon: Receipt, labelKey: 'nav.bills' },
   { to: '/reports', icon: FileBarChart, labelKey: 'nav.reports' },
 ]
 
 export function Sidebar() {
   const { t } = useTranslation()
+  const { currentUser } = useUserStore()
 
   return (
     <aside className="flex h-full w-64 flex-col border-e bg-card">
@@ -33,6 +40,15 @@ export function Sidebar() {
           <span className="text-xs text-muted-foreground">{t('app.tagline')}</span>
         </div>
       </div>
+      
+      <Separator />
+      
+      {currentUser && (
+        <div className="flex items-center gap-3 px-6 py-3">
+          <AvatarDisplay avatar={currentUser.avatar} name={currentUser.name} size="sm" />
+          <span className="text-sm font-medium">{currentUser.name}</span>
+        </div>
+      )}
       
       <Separator />
       

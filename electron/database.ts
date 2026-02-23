@@ -50,6 +50,39 @@ export async function closeDatabase(): Promise<void> {
   }
 }
 
+export function getDatabasePathExport(): string {
+  return getDatabasePath()
+}
+
+export async function backupDatabase(targetPath: string): Promise<void> {
+  const dbPath = getDatabasePath()
+  
+  if (prisma) {
+    await prisma.$disconnect()
+    prisma = null
+  }
+  
+  fs.copyFileSync(dbPath, targetPath)
+  
+  getDatabase()
+}
+
+export async function restoreDatabase(sourcePath: string): Promise<void> {
+  const dbPath = getDatabasePath()
+  
+  if (prisma) {
+    await prisma.$disconnect()
+    prisma = null
+  }
+  
+  const backupPath = dbPath + '.backup-' + Date.now()
+  fs.copyFileSync(dbPath, backupPath)
+  
+  fs.copyFileSync(sourcePath, dbPath)
+  
+  getDatabase()
+}
+
 // User operations
 export async function getUsers() {
   const db = getDatabase()
@@ -249,6 +282,60 @@ export async function deleteTransaction(id: string) {
   return db.transaction.delete({ where: { id } })
 }
 
+export async function createTransfer(data: {
+  amount: number
+  date: Date
+  description: string
+  fromAccountId: string
+  toAccountId: string
+  userId: string
+}) {
+  const db = getDatabase()
+  
+  // Create withdrawal from source account
+  const withdrawal = await db.transaction.create({
+    data: {
+      amount: data.amount,
+      date: data.date,
+      description: data.description || 'Transfer',
+      category: 'Transfer',
+      type: 'Expense',
+      ownership: 'Personal',
+      accountId: data.fromAccountId,
+      userId: data.userId,
+    },
+    include: { account: true, user: true },
+  })
+
+  // Create deposit to destination account
+  const deposit = await db.transaction.create({
+    data: {
+      amount: data.amount,
+      date: data.date,
+      description: data.description || 'Transfer',
+      category: 'Transfer',
+      type: 'Income',
+      ownership: 'Personal',
+      accountId: data.toAccountId,
+      userId: data.userId,
+    },
+    include: { account: true, user: true },
+  })
+
+  // Update account balances
+  await db.account.update({
+    where: { id: data.fromAccountId },
+    data: { balance: { decrement: data.amount } },
+  })
+
+  await db.account.update({
+    where: { id: data.toAccountId },
+    data: { balance: { increment: data.amount } },
+  })
+
+  return { withdrawal, deposit }
+}
+
 // Budget operations
 export async function getBudgets(userId: string, month?: number, year?: number) {
   const db = getDatabase()
@@ -287,6 +374,11 @@ export async function createOrUpdateBudget(data: {
   })
 }
 
+export async function deleteBudget(id: string) {
+  const db = getDatabase()
+  return db.budget.delete({ where: { id } })
+}
+
 // Category operations
 export async function getCategories(type?: string) {
   const db = getDatabase()
@@ -294,6 +386,166 @@ export async function getCategories(type?: string) {
     where: type ? { type } : undefined,
     orderBy: { name: 'asc' },
   })
+}
+
+export async function createCategory(data: {
+  name: string
+  icon?: string
+  color?: string
+  type: string
+}) {
+  const db = getDatabase()
+  return db.category.create({ data })
+}
+
+export async function updateCategory(id: string, data: {
+  name?: string
+  icon?: string
+  color?: string
+  type?: string
+}) {
+  const db = getDatabase()
+  return db.category.update({
+    where: { id },
+    data,
+  })
+}
+
+export async function deleteCategory(id: string) {
+  const db = getDatabase()
+  return db.category.delete({ where: { id } })
+}
+
+// Recurring Transaction operations
+export async function getRecurringTransactions(userId?: string) {
+  const db = getDatabase()
+  return db.recurringTransaction.findMany({
+    where: userId ? { userId } : undefined,
+    include: { account: true, user: true },
+    orderBy: { nextDueDate: 'asc' },
+  })
+}
+
+export async function createRecurringTransaction(data: {
+  amount: number
+  description: string
+  category: string
+  type: string
+  ownership: string
+  frequency: string
+  startDate: Date
+  endDate?: Date | null
+  accountId: string
+  userId: string
+}) {
+  const db = getDatabase()
+  
+  return db.recurringTransaction.create({
+    data: {
+      ...data,
+      nextDueDate: data.startDate,
+    },
+    include: { account: true, user: true },
+  })
+}
+
+export async function updateRecurringTransaction(
+  id: string,
+  data: {
+    amount: number
+    description: string
+    category: string
+    type: string
+    ownership: string
+    frequency: string
+    startDate: Date
+    endDate?: Date | null
+    isActive: boolean
+    accountId: string
+  }
+) {
+  const db = getDatabase()
+  return db.recurringTransaction.update({
+    where: { id },
+    data,
+    include: { account: true, user: true },
+  })
+}
+
+export async function deleteRecurringTransaction(id: string) {
+  const db = getDatabase()
+  return db.recurringTransaction.delete({ where: { id } })
+}
+
+export async function processRecurringTransactions(userId: string) {
+  const db = getDatabase()
+  const now = new Date()
+  now.setHours(23, 59, 59, 999)
+
+  const dueTransactions = await db.recurringTransaction.findMany({
+    where: {
+      userId,
+      isActive: true,
+      nextDueDate: { lte: now },
+      OR: [
+        { endDate: null },
+        { endDate: { gte: now } },
+      ],
+    },
+  })
+
+  const createdTransactions = []
+
+  for (const recurring of dueTransactions) {
+    const transaction = await createTransaction({
+      amount: recurring.amount,
+      date: recurring.nextDueDate,
+      description: recurring.description,
+      category: recurring.category,
+      type: recurring.type,
+      ownership: recurring.ownership,
+      accountId: recurring.accountId,
+      userId: recurring.userId,
+    })
+
+    createdTransactions.push(transaction)
+
+    const nextDate = calculateNextDueDate(recurring.nextDueDate, recurring.frequency)
+    
+    const shouldDeactivate = recurring.endDate && nextDate > recurring.endDate
+
+    await db.recurringTransaction.update({
+      where: { id: recurring.id },
+      data: {
+        nextDueDate: nextDate,
+        lastProcessed: now,
+        isActive: !shouldDeactivate,
+      },
+    })
+  }
+
+  return createdTransactions
+}
+
+function calculateNextDueDate(currentDate: Date, frequency: string): Date {
+  const next = new Date(currentDate)
+  
+  switch (frequency) {
+    case 'Daily':
+      next.setDate(next.getDate() + 1)
+      break
+    case 'Weekly':
+      next.setDate(next.getDate() + 7)
+      break
+    case 'Monthly':
+      next.setMonth(next.getMonth() + 1)
+      break
+    case 'Yearly':
+      next.setFullYear(next.getFullYear() + 1)
+      break
+  }
+  
+  return next
 }
 
 // Dashboard aggregations
@@ -393,4 +645,121 @@ export async function getMonthlyTrends(userId: string, months: number = 6) {
   }
 
   return trends
+}
+
+// Bill operations
+export async function getBills(userId: string) {
+  const db = getDatabase()
+  return db.bill.findMany({
+    where: { userId },
+    orderBy: { dueDate: 'asc' },
+  })
+}
+
+export async function createBill(data: {
+  name: string
+  amount: number
+  dueDate: Date
+  category: string
+  isRecurring: boolean
+  frequency?: string
+  reminder: number
+  notes?: string
+  userId: string
+}) {
+  const db = getDatabase()
+  return db.bill.create({ data })
+}
+
+export async function updateBill(id: string, data: {
+  name?: string
+  amount?: number
+  dueDate?: Date
+  category?: string
+  isPaid?: boolean
+  paidDate?: Date | null
+  isRecurring?: boolean
+  frequency?: string
+  reminder?: number
+  notes?: string
+}) {
+  const db = getDatabase()
+  return db.bill.update({
+    where: { id },
+    data,
+  })
+}
+
+export async function deleteBill(id: string) {
+  const db = getDatabase()
+  return db.bill.delete({ where: { id } })
+}
+
+export async function markBillPaid(id: string, paidDate: Date = new Date()) {
+  const db = getDatabase()
+  const bill = await db.bill.findUnique({ where: { id } })
+  
+  if (!bill) throw new Error('Bill not found')
+  
+  if (bill.isRecurring && bill.frequency) {
+    const nextDueDate = new Date(bill.dueDate)
+    switch (bill.frequency) {
+      case 'Monthly':
+        nextDueDate.setMonth(nextDueDate.getMonth() + 1)
+        break
+      case 'Quarterly':
+        nextDueDate.setMonth(nextDueDate.getMonth() + 3)
+        break
+      case 'Yearly':
+        nextDueDate.setFullYear(nextDueDate.getFullYear() + 1)
+        break
+    }
+    
+    return db.bill.update({
+      where: { id },
+      data: {
+        isPaid: false,
+        paidDate: null,
+        dueDate: nextDueDate,
+      },
+    })
+  }
+  
+  return db.bill.update({
+    where: { id },
+    data: { isPaid: true, paidDate },
+  })
+}
+
+export async function getUpcomingBills(userId: string, days: number = 7) {
+  const db = getDatabase()
+  const now = new Date()
+  const futureDate = new Date()
+  futureDate.setDate(futureDate.getDate() + days)
+  
+  return db.bill.findMany({
+    where: {
+      userId,
+      isPaid: false,
+      dueDate: {
+        gte: now,
+        lte: futureDate,
+      },
+    },
+    orderBy: { dueDate: 'asc' },
+  })
+}
+
+export async function getOverdueBills(userId: string) {
+  const db = getDatabase()
+  const now = new Date()
+  
+  return db.bill.findMany({
+    where: {
+      userId,
+      isPaid: false,
+      dueDate: { lt: now },
+    },
+    orderBy: { dueDate: 'asc' },
+  })
 }

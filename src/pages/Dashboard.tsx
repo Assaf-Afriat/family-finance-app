@@ -1,6 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Wallet, TrendingUp, TrendingDown, Target } from 'lucide-react'
+import { Wallet, TrendingUp, TrendingDown, Target, Plus } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { AddTransactionModal } from '@/components/transactions/AddTransactionModal'
 import { KPICard } from '@/components/dashboard/KPICard'
 import { IncomeExpenseChart } from '@/components/dashboard/IncomeExpenseChart'
 import { ExpenseDonutChart } from '@/components/dashboard/ExpenseDonutChart'
@@ -10,6 +12,7 @@ import { formatILS } from '@/lib/currency'
 import { useUserStore } from '@/stores/userStore'
 import { useDashboardStore } from '@/stores/dashboardStore'
 import { useTransactionStore } from '@/stores/transactionStore'
+import { DashboardSkeleton } from '@/components/ui/skeleton'
 import type { MonthlyData, CategoryExpense, BudgetHealth as BudgetHealthType, Transaction } from '@/types'
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -111,7 +114,8 @@ export function Dashboard() {
   const { t } = useTranslation()
   const { currentUser } = useUserStore()
   const { stats, monthlyTrends, isLoading, fetchDashboardData } = useDashboardStore()
-  const { recentTransactions, fetchRecentTransactions } = useTransactionStore()
+  const { recentTransactions, fetchRecentTransactions, fetchTransactions } = useTransactionStore()
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
 
   const isElectron = typeof window !== 'undefined' && window.electronAPI
 
@@ -155,13 +159,29 @@ export function Dashboard() {
       }))
     : mockRecentTransactions
 
+  if (isLoading && isElectron) {
+    return <DashboardSkeleton />
+  }
+
+  const handleQuickAddSuccess = () => {
+    if (currentUser) {
+      fetchDashboardData(currentUser.id)
+      fetchRecentTransactions(5)
+      fetchTransactions()
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('dashboard.title')}</h1>
-        <p className="text-muted-foreground">
-          {isLoading ? t('common.loading') : t('dashboard.subtitle')}
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{t('dashboard.title')}</h1>
+          <p className="text-muted-foreground">{t('dashboard.subtitle')}</p>
+        </div>
+        <Button onClick={() => setIsQuickAddOpen(true)}>
+          <Plus className="me-2 h-4 w-4" />
+          {t('dashboard.quickAdd')}
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -207,6 +227,12 @@ export function Dashboard() {
         <BudgetHealth budgets={budgetHealth} />
         <RecentTransactions transactions={transactions} />
       </div>
+
+      <AddTransactionModal
+        open={isQuickAddOpen}
+        onOpenChange={setIsQuickAddOpen}
+        onSuccess={handleQuickAddSuccess}
+      />
     </div>
   )
 }

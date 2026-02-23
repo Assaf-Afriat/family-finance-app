@@ -1,14 +1,19 @@
 import { useEffect, useState } from 'react'
-import { Plus, Wallet, CreditCard, PiggyBank, Banknote, Users, Pencil } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { Plus, Wallet, CreditCard, PiggyBank, Banknote, Users, Pencil, ArrowRightLeft } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { AddAccountModal } from '@/components/accounts/AddAccountModal'
 import { EditAccountModal } from '@/components/accounts/EditAccountModal'
+import { TransferModal } from '@/components/accounts/TransferModal'
 import { useAccountStore } from '@/stores/accountStore'
+import { useUserStore } from '@/stores/userStore'
+import { useDashboardStore } from '@/stores/dashboardStore'
 import { formatILS } from '@/lib/currency'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/toast'
+import { AccountsSkeleton } from '@/components/ui/skeleton'
 
 const ACCOUNT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Checking: Wallet,
@@ -25,9 +30,13 @@ const ACCOUNT_COLORS: Record<string, { bg: string; text: string }> = {
 }
 
 export function Accounts() {
+  const { t } = useTranslation()
   const { accounts, isLoading, fetchAccounts, updateAccount } = useAccountStore()
+  const { currentUser } = useUserStore()
+  const { fetchDashboardData } = useDashboardStore()
   const { addToast } = useToast()
   const [isAddOpen, setIsAddOpen] = useState(false)
+  const [isTransferOpen, setIsTransferOpen] = useState(false)
   const [editAccount, setEditAccount] = useState<typeof accounts[0] | null>(null)
 
   const isElectron = typeof window !== 'undefined' && window.electronAPI
@@ -79,19 +88,31 @@ export function Accounts() {
 
   const displayAccounts = isElectron && accounts.length > 0 ? accounts : mockAccounts
 
+  if (isLoading && isElectron) {
+    return <AccountsSkeleton />
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Accounts</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t('nav.accounts')}</h1>
           <p className="text-muted-foreground">
             Manage your bank accounts, credit cards, and cash
           </p>
         </div>
-        <Button onClick={() => setIsAddOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Account
-        </Button>
+        <div className="flex gap-2">
+          {accounts.length >= 2 && (
+            <Button variant="outline" onClick={() => setIsTransferOpen(true)}>
+              <ArrowRightLeft className="me-2 h-4 w-4" />
+              {t('transfer.transfer')}
+            </Button>
+          )}
+          <Button onClick={() => setIsAddOpen(true)}>
+            <Plus className="me-2 h-4 w-4" />
+            {t('accounts.addAccount')}
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -219,6 +240,19 @@ export function Accounts() {
         account={editAccount}
         onSave={handleEditSave}
       />
+
+      {currentUser && (
+        <TransferModal
+          open={isTransferOpen}
+          onOpenChange={setIsTransferOpen}
+          accounts={accounts}
+          userId={currentUser.id}
+          onSuccess={() => {
+            fetchAccounts()
+            fetchDashboardData(currentUser.id)
+          }}
+        />
+      )}
     </div>
   )
 }
