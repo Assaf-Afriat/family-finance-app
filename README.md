@@ -1,197 +1,104 @@
 # Family Finance Manager
 
-A modern, local-first desktop application for personal and family finance management. Track expenses, manage budgets, and visualize your financial health - all with your data stored securely on your own computer.
+Local-first desktop finance management for a family household. The app runs in Electron, stores data in SQLite via Prisma, and keeps all data on the local machine.
 
-![Electron](https://img.shields.io/badge/Electron-29-47848F?logo=electron)
-![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-06B6D4?logo=tailwindcss)
-![SQLite](https://img.shields.io/badge/SQLite-Local-003B57?logo=sqlite)
+## Current Status
 
-## Features
+- Core desktop MVP is working.
+- TypeScript passes.
+- Database bootstrap works with `db:push` and `db:seed`.
+- Production packaging works and produces a portable Windows executable.
+- Active profile scoping is enforced as `personal + joint`.
 
-### Multi-User Support
-- **Profile Selection** - Switch between family members on launch
-- **Personal & Joint Tracking** - Tag transactions and accounts as personal or shared
-- **Individual Dashboards** - Each user sees their own financial overview
-- **Edit & Delete Profiles** - Manage family member profiles in settings
+## Implemented Features
 
-### Dashboard
-- **KPI Cards** - Net worth, monthly income, expenses, and remaining budget at a glance
-- **Income vs Expenses Chart** - 6-month trend visualization
-- **Expenses by Category** - Donut chart breakdown of spending
-- **Budget Health** - Progress bars showing budget utilization
-- **Recent Transactions** - Quick view of latest activity
-
-### Transaction Management
-- **Full Transaction History** - View all income and expenses
-- **Smart Filters** - Filter by type, category, ownership, and search
-- **Add & Edit Transactions** - Full CRUD support with category, amount, and date
-- **Delete with Confirmation** - Remove transactions safely
-- **Toast Notifications** - Instant feedback on all actions
-
-### Account Management
-- **Multiple Account Types** - Checking, Savings, Credit Cards, Cash, Investment
-- **Add & Edit Accounts** - Full account management
-- **Balance Tracking** - Automatic balance updates with transactions
-- **Joint Accounts** - Mark accounts as shared between family members
-- **Net Worth Calculation** - Assets minus liabilities
-
-### Budget Tracking
-- **Category Budgets** - Set monthly spending limits per category
-- **Visual Progress** - Color-coded progress bars (green/amber/red)
-- **Status Indicators** - "On Track", "Near Limit", "Over Budget" badges
-- **Monthly Reset** - Budgets automatically reset each month
-
-### Dark Mode & Themes
-- **Light / Dark / System** - Choose your preferred theme
-- **Persistent Preference** - Theme saved across sessions
-- **System Theme Detection** - Automatically match OS preference
-
-### Multi-Language Support (i18n)
-- **English** - Full English interface
-- **עברית (Hebrew)** - Complete Hebrew translation with RTL support
-- **Persistent Language** - Preference saved across sessions
-- **Easy Switching** - Change language anytime from settings
-
-### Data Management
-- **CSV Export** - Export all transactions to CSV
-- **Local Storage** - All data stays on your computer
-- **No Cloud Required** - Complete privacy
+- Profile selection and profile management
+- Dashboard with KPIs, monthly trends, category breakdown, budget health, and recent transactions
+- Transaction CRUD with filters, undo-delete toast, and category-aware forms
+- Account CRUD plus account-to-account transfers
+- Monthly budgets with create, edit, delete, and progress tracking
+- Recurring transactions with pause/resume and manual processing
+- Bills tracking with upcoming, overdue, and mark-paid flows
+- Reports page with charts and PDF export
+- Category management for custom income and expense categories
+- CSV import and export
+- Database backup and restore
+- Theme switching, keyboard shortcuts, English/Hebrew i18n, and RTL support
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| **Runtime** | Electron 29 |
-| **Frontend** | React 18 + TypeScript |
-| **Build Tool** | Vite 5 |
-| **Styling** | Tailwind CSS + shadcn/ui |
-| **Charts** | Recharts |
-| **Database** | SQLite (local) + Prisma ORM |
-| **State** | Zustand |
-| **i18n** | react-i18next |
-| **Currency** | ILS (₪) |
+- Electron 29
+- React 18 + TypeScript
+- Vite 5
+- Tailwind CSS + shadcn/ui
+- Zustand
+- Prisma + SQLite
+- Recharts
 
 ## Getting Started
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) v18 or higher
-- npm or yarn
+- Node.js 18+
+- npm
 
-### Installation
+### Install
 
 ```bash
-# Clone the repository
-git clone https://github.com/Assaf-Afriat/family-finance-app.git
-cd family-finance-app
-
-# Install dependencies
 npm install
-
-# Generate Prisma client
 npm run db:generate
-
-# Create database and seed with sample data
 npm run db:push
 npm run db:seed
 ```
 
-### Running the App
+### Run
 
 ```bash
-# Development (browser only)
-npm run dev
-
-# Development with Electron (desktop app)
 npm run electron:dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser, or wait for the Electron window to open.
-
-### Database Commands
+Browser-only mode is for renderer development only:
 
 ```bash
-npm run db:generate  # Generate Prisma client
-npm run db:push      # Push schema to database
-npm run db:seed      # Seed with sample data
-npm run db:studio    # Open Prisma Studio (database GUI)
-npm run db:reset     # Reset database and re-seed
+npm run dev
 ```
 
-## Project Structure
+## Database
 
-```
-family-finance-app/
-├── electron/              # Electron main process
-│   ├── main.ts           # App entry, IPC handlers
-│   ├── preload.ts        # Context bridge API
-│   └── database.ts       # Prisma database operations
-├── prisma/
-│   ├── schema.prisma     # Database schema
-│   └── seed.ts           # Sample data seeder
-├── src/
-│   ├── components/
-│   │   ├── layout/       # Sidebar, Header, MainLayout
-│   │   ├── dashboard/    # KPI cards, charts, widgets
-│   │   ├── transactions/ # Add/Edit transaction modals
-│   │   ├── accounts/     # Add/Edit account modals
-│   │   ├── shared/       # Theme toggle, Language selector
-│   │   └── ui/           # shadcn/ui components
-│   ├── pages/            # Route pages
-│   ├── stores/           # Zustand state stores
-│   ├── locales/          # Translation files (en.json, he.json)
-│   ├── lib/              # Utilities (currency, i18n, etc.)
-│   └── types/            # TypeScript interfaces
-├── package.json
-├── vite.config.ts
-└── tailwind.config.js
+- Dev database: `prisma/family-finance.db`
+- Packaged database: copied to Electron `userData` on first launch
+
+Useful commands:
+
+```bash
+npm run db:generate
+npm run db:push
+npm run db:seed
+npm run db:reset
+npm run db:studio
 ```
 
-## Screenshots
+## Build
 
-### Dashboard
-View your financial health at a glance with KPIs, charts, and recent activity.
+```bash
+npm run build
+```
 
-### Transactions
-Full transaction history with search, filters, and edit functionality.
+Build output:
 
-### Accounts
-Manage bank accounts, credit cards, and cash with balance tracking.
+- Renderer bundle: `dist/`
+- Electron bundle: `dist-electron/`
+- Portable Windows executable: `release-build/Family Finance 1.0.0.exe`
 
-### Budgets
-Set and track monthly spending limits by category.
+## Notes
 
-### Settings
-Manage profiles, themes, language, and export data.
+- Currency is currently ILS-only.
+- Browser mode still uses fallback/mock behavior and is not a supported release target.
+- Packaging currently works without `asar`; that is functional but not ideal for long-term hardening.
 
-## Privacy & Security
+## Remaining Work
 
-- **100% Local** - All data stored on your computer
-- **No Cloud** - No data leaves your machine
-- **SQLite Database** - Simple, portable database file
-- **Context Isolation** - Secure Electron architecture
-
-## Roadmap
-
-- [x] Dark mode toggle
-- [x] Edit transactions & accounts
-- [x] Toast notifications
-- [x] Hebrew language support (RTL)
-- [x] CSV data export
-- [ ] Recurring transactions
-- [ ] Bill reminders
-- [ ] Multiple currencies
-- [ ] Reports page with detailed analytics
-- [ ] PDF export
-- [ ] Data backup/restore
-- [ ] Production build & installer
-
-## License
-
-MIT License - feel free to use and modify for personal use.
-
-## Author
-
-Built with ❤️ for family finance management.
+- Add tests
+- Add app icon and release polish
+- Reduce large renderer bundle size
+- Address remaining transitive production advisories reported by `npm audit --omit=dev`

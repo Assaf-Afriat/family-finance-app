@@ -1,14 +1,6 @@
 import { create } from 'zustand'
-
-interface TransactionFilters {
-  userId?: string
-  accountId?: string
-  startDate?: string
-  endDate?: string
-  type?: string
-  category?: string
-  limit?: number
-}
+import type { Transaction, TransactionFilters } from '@/types'
+import { useUserStore } from '@/stores/userStore'
 
 interface TransactionState {
   transactions: Transaction[]
@@ -18,9 +10,9 @@ interface TransactionState {
   setTransactions: (transactions: Transaction[]) => void
   setRecentTransactions: (transactions: Transaction[]) => void
   setLoading: (loading: boolean) => void
-  setFilters: (filters: TransactionFilters) => void
-  fetchTransactions: (filters?: TransactionFilters) => Promise<void>
-  fetchRecentTransactions: (limit?: number) => Promise<void>
+  setFilters: (filters: Partial<TransactionFilters>) => void
+  fetchTransactions: (filters?: Partial<TransactionFilters>) => Promise<void>
+  fetchRecentTransactions: (userId?: string, limit?: number) => Promise<void>
   createTransaction: (data: {
     amount: number
     date: string
@@ -47,19 +39,28 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
   transactions: [],
   recentTransactions: [],
   isLoading: false,
-  filters: {},
+  filters: { userId: '' },
 
   setTransactions: (transactions) => set({ transactions }),
   setRecentTransactions: (transactions) => set({ recentTransactions: transactions }),
   setLoading: (loading) => set({ isLoading: loading }),
-  setFilters: (filters) => set({ filters }),
+  setFilters: (filters) => set((state) => ({ filters: { ...state.filters, ...filters } })),
 
   fetchTransactions: async (filters) => {
     set({ isLoading: true })
     try {
+      const currentUserId = useUserStore.getState().currentUser?.id
       if (window.electronAPI) {
-        const transactions = await window.electronAPI.getTransactions(filters || get().filters)
-        set({ transactions })
+        const nextFilters = {
+          ...get().filters,
+          ...filters,
+          userId: filters?.userId ?? (get().filters.userId || currentUserId || ''),
+        }
+        if (!nextFilters.userId) {
+          throw new Error('User ID is required to fetch transactions')
+        }
+        const transactions = await window.electronAPI.getTransactions(nextFilters)
+        set({ transactions, filters: nextFilters })
       }
     } catch (error) {
       console.error('Failed to fetch transactions:', error)
@@ -68,10 +69,11 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     }
   },
 
-  fetchRecentTransactions: async (limit = 5) => {
+  fetchRecentTransactions: async (userId, limit = 5) => {
     try {
-      if (window.electronAPI) {
-        const transactions = await window.electronAPI.getTransactions({ limit })
+      const scopedUserId = userId ?? useUserStore.getState().currentUser?.id
+      if (window.electronAPI && scopedUserId) {
+        const transactions = await window.electronAPI.getTransactions({ userId: scopedUserId, limit })
         set({ recentTransactions: transactions })
       }
     } catch (error) {

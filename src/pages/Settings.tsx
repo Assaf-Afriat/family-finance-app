@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { User, Palette, Database, Download, Trash2, Pencil, Globe, Upload, HardDrive, Keyboard } from 'lucide-react'
+import { User, Palette, Database, Download, Trash2, Pencil, Upload, HardDrive, Keyboard } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,6 +26,8 @@ import { LanguageSelector } from '@/components/shared/LanguageSelector'
 import { useUserStore } from '@/stores/userStore'
 import { useTransactionStore } from '@/stores/transactionStore'
 import { useAccountStore } from '@/stores/accountStore'
+import { useDashboardStore } from '@/stores/dashboardStore'
+import { useRecurringStore } from '@/stores/recurringStore'
 import { useToast } from '@/components/ui/toast'
 import { parseCSV } from '@/lib/csvImport'
 import { AvatarSelector, AvatarDisplay } from '@/components/shared/AvatarSelector'
@@ -33,9 +35,11 @@ import { CategoryManagement } from '@/components/settings/CategoryManagement'
 
 export function Settings() {
   const { t } = useTranslation()
-  const { users, currentUser, fetchUsers, setCurrentUser } = useUserStore()
-  const { transactions, fetchTransactions, createTransaction } = useTransactionStore()
-  const { accounts, fetchAccounts } = useAccountStore()
+  const { users, currentUser, fetchUsers, setCurrentUser, setUsers } = useUserStore()
+  const { fetchTransactions, createTransaction } = useTransactionStore()
+  const { accounts, fetchAccounts, setAccounts } = useAccountStore()
+  const { fetchDashboardData } = useDashboardStore()
+  const { fetchRecurringTransactions } = useRecurringStore()
   const { addToast } = useToast()
 
   const [editingUser, setEditingUser] = useState<{ id: string; name: string; avatar: string | null } | null>(null)
@@ -47,6 +51,23 @@ export function Settings() {
   const [isImporting, setIsImporting] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [importAccountId, setImportAccountId] = useState('')
+
+  const getTestOverridePath = (key: string) => {
+    const overrides = (window as Window & {
+      __codexTestOverrides?: Record<string, string>
+    }).__codexTestOverrides
+
+    return overrides?.[key]
+  }
+
+  const refreshFinanceState = async (userId: string) => {
+    await Promise.all([
+      fetchAccounts(userId),
+      fetchTransactions({ userId }),
+      fetchDashboardData(userId),
+      fetchRecurringTransactions(userId),
+    ])
+  }
 
   const handleEditUser = (user: { id: string; name: string; avatar: string | null }) => {
     setEditingUser(user)
@@ -111,7 +132,7 @@ export function Settings() {
   }
 
   const handleExportCSV = async () => {
-    if (!window.electronAPI) {
+    if (!window.electronAPI || !currentUser) {
       addToast({
         title: t('toast.exportDesktopOnly'),
         type: 'error',
@@ -120,36 +141,18 @@ export function Settings() {
     }
 
     try {
-      await fetchTransactions()
-      
-      const headers = ['Date', 'Description', 'Category', 'Type', 'Ownership', 'Amount']
-      const rows = transactions.map(tr => [
-        new Date(tr.date).toISOString().split('T')[0],
-        tr.description,
-        tr.category,
-        tr.type,
-        tr.ownership,
-        tr.amount.toString(),
-      ])
-
-      const csvContent = [
-        headers.join(','),
-        ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
-      ].join('\n')
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-      const link = document.createElement('a')
-      const url = URL.createObjectURL(blob)
-      link.setAttribute('href', url)
-      link.setAttribute('download', `transactions_${new Date().toISOString().split('T')[0]}.csv`)
-      link.style.visibility = 'hidden'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      const result = await window.electronAPI.exportTransactionsCSV(
+        currentUser.id,
+        getTestOverridePath('exportCsv')
+      )
+      if (result.canceled) return
+      if (!result.success) {
+        throw new Error(result.error)
+      }
 
       addToast({
         title: t('toast.exportSuccess'),
-        description: `${rows.length} transactions exported to CSV.`,
+        description: `${result.rowCount ?? 0} transactions exported to CSV.`,
         type: 'success',
       })
     } catch (error) {
@@ -171,13 +174,13 @@ export function Settings() {
     }
 
     try {
-      const result = await window.electronAPI.backupDatabase()
+      const result = await window.electronAPI.backupDatabase(getTestOverridePath('backupDb'))
       if (result.canceled) return
       
       if (result.success) {
         addToast({
           title: t('toast.backupSuccess'),
-          description: t('toast.backupSaved'),
+          description: result.path || t('toast.backupSaved'),
           type: 'success',
         })
       } else {
@@ -202,17 +205,25 @@ export function Settings() {
     }
 
     try {
-      const result = await window.electronAPI.restoreDatabase()
+      const result = await window.electronAPI.restoreDatabase(getTestOverridePath('restoreDb'))
       if (result.canceled) return
       
       if (result.success) {
+        const nextUsers = await window.electronAPI.getUsers()
+        setUsers(nextUsers)
+        const nextCurrentUser = currentUser
+          ? nextUsers.find((user) => user.id === currentUser.id) || nextUsers[0] || null
+          : nextUsers[0] || null
+        setCurrentUser(nextCurrentUser)
+        if (nextCurrentUser) {
+          await refreshFinanceState(nextCurrentUser.id)
+        }
+
         addToast({
           title: t('toast.restoreSuccess'),
-          description: t('toast.restoreComplete'),
+          description: result.path || t('toast.restoreComplete'),
           type: 'success',
         })
-        await fetchUsers()
-        await fetchTransactions()
       } else {
         throw new Error(result.error)
       }
@@ -226,8 +237,18 @@ export function Settings() {
   }
 
   const handleImportClick = async () => {
-    await fetchAccounts()
-    if (accounts.length === 0) {
+    if (!currentUser || !window.electronAPI) {
+      addToast({
+        title: t('toast.exportDesktopOnly'),
+        type: 'error',
+      })
+      return
+    }
+
+    const latestAccounts = await window.electronAPI.getAccounts(currentUser.id)
+    setAccounts(latestAccounts)
+
+    if (latestAccounts.length === 0) {
       addToast({
         title: t('toast.noAccountsForImport'),
         description: t('toast.createAccountFirst'),
@@ -235,7 +256,7 @@ export function Settings() {
       })
       return
     }
-    setImportAccountId(accounts[0]?.id || '')
+    setImportAccountId(latestAccounts[0]?.id || '')
     setImportDialogOpen(true)
   }
 
@@ -276,7 +297,7 @@ export function Settings() {
       }
 
       setImportDialogOpen(false)
-      await fetchTransactions()
+      await refreshFinanceState(currentUser.id)
       
       addToast({
         title: t('toast.importSuccess'),
@@ -452,7 +473,12 @@ export function Settings() {
                   {t('settings.exportDescription')}
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={handleExportCSV}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportCSV}
+                data-testid="settings-export-button"
+              >
                 <Download className="me-2 h-4 w-4" />
                 {t('common.export')}
               </Button>
@@ -465,7 +491,12 @@ export function Settings() {
                   {t('settings.backupDescription')}
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={handleBackup}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBackup}
+                data-testid="settings-backup-button"
+              >
                 <HardDrive className="me-2 h-4 w-4" />
                 {t('settings.backup')}
               </Button>
@@ -478,7 +509,12 @@ export function Settings() {
                   {t('settings.restoreDescription')}
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={handleRestore}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRestore}
+                data-testid="settings-restore-button"
+              >
                 <Upload className="me-2 h-4 w-4" />
                 {t('settings.restore')}
               </Button>
@@ -491,7 +527,12 @@ export function Settings() {
                   {t('settings.importDescription')}
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={handleImportClick}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleImportClick}
+                data-testid="settings-import-button"
+              >
                 <Upload className="me-2 h-4 w-4" />
                 {t('settings.import')}
               </Button>
@@ -600,12 +641,16 @@ export function Settings() {
             <div className="space-y-2">
               <Label>{t('settings.selectAccount')}</Label>
               <Select value={importAccountId} onValueChange={setImportAccountId}>
-                <SelectTrigger>
+                <SelectTrigger data-testid="settings-import-account-trigger">
                   <SelectValue placeholder={t('settings.selectAccount')} />
                 </SelectTrigger>
                 <SelectContent>
                   {accounts.map((acc) => (
-                    <SelectItem key={acc.id} value={acc.id}>
+                    <SelectItem
+                      key={acc.id}
+                      value={acc.id}
+                      data-testid={`settings-import-account-option-${acc.id}`}
+                    >
                       {acc.name}
                     </SelectItem>
                   ))}
@@ -617,6 +662,7 @@ export function Settings() {
               <Input
                 type="file"
                 accept=".csv"
+                data-testid="settings-import-file-input"
                 onChange={(e) => {
                   const file = e.target.files?.[0]
                   if (file) handleImportCSV(file)

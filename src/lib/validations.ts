@@ -84,7 +84,7 @@ export function validateForm<T>(schema: z.ZodSchema<T>, data: unknown): { succes
   }
   
   const errors: Record<string, string> = {}
-  for (const error of result.error.errors) {
+  for (const error of result.error.issues) {
     const path = error.path.join('.')
     errors[path] = error.message
   }

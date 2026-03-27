@@ -1,8 +1,34 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import fs from 'fs'
 import path from 'path'
 import * as db from './database'
 
 const isDev = process.env.NODE_ENV !== 'production'
+const isTestMode = process.env.FAMILY_FINANCE_TEST_MODE === '1'
+
+function buildTransactionsCSV(transactions: Array<{
+  amount: number
+  date: string | Date
+  description: string
+  category: string
+  type: string
+  ownership: string
+}>) {
+  const headers = ['Date', 'Description', 'Category', 'Type', 'Ownership', 'Amount']
+  const rows = transactions.map((transaction) => [
+    new Date(transaction.date).toISOString().split('T')[0],
+    transaction.description,
+    transaction.category,
+    transaction.type,
+    transaction.ownership,
+    transaction.amount.toString(),
+  ])
+
+  return [
+    headers.join(','),
+    ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
+  ].join('\n')
+}
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
@@ -25,7 +51,9 @@ function createWindow() {
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173')
-    mainWindow.webContents.openDevTools()
+    if (!isTestMode) {
+      mainWindow.webContents.openDevTools()
+    }
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
@@ -55,7 +83,7 @@ function setupIpcHandlers() {
   })
 
   // Accounts
-  ipcMain.handle('db:getAccounts', async (_, userId?: string) => {
+  ipcMain.handle('db:getAccounts', async (_, userId: string) => {
     return db.getAccounts(userId)
   })
 
@@ -111,6 +139,18 @@ function setupIpcHandlers() {
   // Categories
   ipcMain.handle('db:getCategories', async (_, type?: string) => {
     return db.getCategories(type)
+  })
+
+  ipcMain.handle('db:createCategory', async (_, data) => {
+    return db.createCategory(data)
+  })
+
+  ipcMain.handle('db:updateCategory', async (_, id: string, data) => {
+    return db.updateCategory(id, data)
+  })
+
+  ipcMain.handle('db:deleteCategory', async (_, id: string) => {
+    return db.deleteCategory(id)
   })
 
   // Recurring Transactions
@@ -188,46 +228,88 @@ function setupIpcHandlers() {
   })
 
   // Backup and Restore
-  ipcMain.handle('db:backupDatabase', async () => {
+  ipcMain.handle('db:exportTransactionsCsv', async (_, userId: string, targetPath?: string) => {
     const mainWindow = BrowserWindow.getFocusedWindow()
-    if (!mainWindow) return { success: false, error: 'No window' }
+    let filePath = targetPath
 
-    const result = await dialog.showSaveDialog(mainWindow, {
-      title: 'Backup Database',
-      defaultPath: `family-finance-backup-${new Date().toISOString().split('T')[0]}.db`,
-      filters: [{ name: 'Database', extensions: ['db'] }],
-    })
+    if (!filePath) {
+      if (!mainWindow) return { success: false, error: 'No window' }
 
-    if (result.canceled || !result.filePath) {
-      return { success: false, canceled: true }
+      const result = await dialog.showSaveDialog(mainWindow, {
+        title: 'Export Transactions',
+        defaultPath: `transactions-${new Date().toISOString().split('T')[0]}.csv`,
+        filters: [{ name: 'CSV', extensions: ['csv'] }],
+      })
+
+      if (result.canceled || !result.filePath) {
+        return { success: false, canceled: true }
+      }
+
+      filePath = result.filePath
     }
 
     try {
-      await db.backupDatabase(result.filePath)
-      return { success: true, path: result.filePath }
+      const transactions = await db.getTransactions({ userId })
+      fs.writeFileSync(filePath, buildTransactionsCSV(transactions), 'utf8')
+      return { success: true, path: filePath, rowCount: transactions.length }
+    } catch (error) {
+      console.error('CSV export failed:', error)
+      return { success: false, error: String(error) }
+    }
+  })
+
+  ipcMain.handle('db:backupDatabase', async (_, targetPath?: string) => {
+    const mainWindow = BrowserWindow.getFocusedWindow()
+    let filePath = targetPath
+
+    if (!filePath) {
+      if (!mainWindow) return { success: false, error: 'No window' }
+
+      const result = await dialog.showSaveDialog(mainWindow, {
+        title: 'Backup Database',
+        defaultPath: `family-finance-backup-${new Date().toISOString().split('T')[0]}.db`,
+        filters: [{ name: 'Database', extensions: ['db'] }],
+      })
+
+      if (result.canceled || !result.filePath) {
+        return { success: false, canceled: true }
+      }
+
+      filePath = result.filePath
+    }
+
+    try {
+      await db.backupDatabase(filePath)
+      return { success: true, path: filePath }
     } catch (error) {
       console.error('Backup failed:', error)
       return { success: false, error: String(error) }
     }
   })
 
-  ipcMain.handle('db:restoreDatabase', async () => {
+  ipcMain.handle('db:restoreDatabase', async (_, sourcePath?: string) => {
     const mainWindow = BrowserWindow.getFocusedWindow()
-    if (!mainWindow) return { success: false, error: 'No window' }
+    let filePath = sourcePath
 
-    const result = await dialog.showOpenDialog(mainWindow, {
-      title: 'Restore Database',
-      filters: [{ name: 'Database', extensions: ['db'] }],
-      properties: ['openFile'],
-    })
+    if (!filePath) {
+      if (!mainWindow) return { success: false, error: 'No window' }
 
-    if (result.canceled || result.filePaths.length === 0) {
-      return { success: false, canceled: true }
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: 'Restore Database',
+        filters: [{ name: 'Database', extensions: ['db'] }],
+        properties: ['openFile'],
+      })
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: false, canceled: true }
+      }
+
+      filePath = result.filePaths[0]
     }
 
     try {
-      await db.restoreDatabase(result.filePaths[0])
-      return { success: true, path: result.filePaths[0] }
+      await db.restoreDatabase(filePath)
+      return { success: true, path: filePath }
     } catch (error) {
       console.error('Restore failed:', error)
       return { success: false, error: String(error) }

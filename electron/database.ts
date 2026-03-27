@@ -6,6 +6,10 @@ import fs from 'fs'
 let prisma: PrismaClient | null = null
 
 function getDatabasePath(): string {
+  if (process.env.FAMILY_FINANCE_DB_PATH) {
+    return path.resolve(process.env.FAMILY_FINANCE_DB_PATH)
+  }
+
   const isDev = process.env.NODE_ENV !== 'production' || !app.isPackaged
   
   if (isDev) {
@@ -122,10 +126,15 @@ export async function deleteUser(id: string) {
 }
 
 // Account operations
-export async function getAccounts(userId?: string) {
+export async function getAccounts(userId: string) {
   const db = getDatabase()
   return db.account.findMany({
-    where: userId ? { ownerId: userId } : undefined,
+    where: {
+      OR: [
+        { ownerId: userId },
+        { isJoint: true },
+      ],
+    },
     include: { owner: true },
     orderBy: { name: 'asc' },
   })
@@ -168,8 +177,8 @@ export async function updateAccount(
 }
 
 // Transaction operations
-export async function getTransactions(filters?: {
-  userId?: string
+export async function getTransactions(filters: {
+  userId: string
   accountId?: string
   startDate?: Date
   endDate?: Date
@@ -180,11 +189,15 @@ export async function getTransactions(filters?: {
   const db = getDatabase()
   const where: Record<string, unknown> = {}
 
-  if (filters?.userId) where.userId = filters.userId
-  if (filters?.accountId) where.accountId = filters.accountId
-  if (filters?.type) where.type = filters.type
-  if (filters?.category) where.category = filters.category
-  if (filters?.startDate || filters?.endDate) {
+  where.OR = [
+    { userId: filters.userId },
+    { ownership: 'Joint' },
+  ]
+
+  if (filters.accountId) where.accountId = filters.accountId
+  if (filters.type) where.type = filters.type
+  if (filters.category) where.category = filters.category
+  if (filters.startDate || filters.endDate) {
     where.date = {}
     if (filters.startDate) (where.date as Record<string, Date>).gte = filters.startDate
     if (filters.endDate) (where.date as Record<string, Date>).lte = filters.endDate
@@ -194,7 +207,7 @@ export async function getTransactions(filters?: {
     where,
     include: { account: true, user: true },
     orderBy: { date: 'desc' },
-    take: filters?.limit,
+    take: filters.limit,
   })
 }
 

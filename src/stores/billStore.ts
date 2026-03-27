@@ -37,7 +37,7 @@ interface BillState {
   markBillPaid: (id: string) => Promise<Bill>
 }
 
-export const useBillStore = create<BillState>((set, get) => ({
+export const useBillStore = create<BillState>((set) => ({
   bills: [],
   upcomingBills: [],
   overdueBills: [],

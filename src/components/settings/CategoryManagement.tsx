@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, Pencil, Trash2, Tag } from 'lucide-react'
+import { Plus, Tag, Trash2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select'
 import { useToast } from '@/components/ui/toast'
 import { useCategoryStore, DEFAULT_EXPENSE_CATEGORIES, DEFAULT_INCOME_CATEGORIES } from '@/stores/categoryStore'
+import { CATEGORY_ICON_OPTIONS, renderCategoryIcon } from '@/lib/categoryIcons'
 import { cn } from '@/lib/utils'
 
 const CATEGORY_COLORS = [
@@ -36,14 +37,9 @@ const CATEGORY_COLORS = [
   { id: 'amber', bg: 'bg-amber-500', text: 'Amber' },
 ]
 
-const CATEGORY_ICONS = [
-  '🏠', '🛒', '🚗', '💡', '🎬', '🏥', '🍽️', '🛍️', '📚', '🛡️',
-  '💇', '📺', '✈️', '🎁', '💼', '💰', '📈', '🏦', '💵', '📦',
-]
-
 export function CategoryManagement() {
   const { t } = useTranslation()
-  const { categories, isLoading, fetchCategories, createCategory, updateCategory, deleteCategory } = useCategoryStore()
+  const { categories, fetchCategories, createCategory, updateCategory, deleteCategory } = useCategoryStore()
   const { showToast } = useToast()
 
   const [isAddOpen, setIsAddOpen] = useState(false)
@@ -53,7 +49,7 @@ export function CategoryManagement() {
 
   const [name, setName] = useState('')
   const [type, setType] = useState<'Income' | 'Expense'>('Expense')
-  const [icon, setIcon] = useState('📦')
+  const [icon, setIcon] = useState('Package')
   const [color, setColor] = useState('blue')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -64,7 +60,7 @@ export function CategoryManagement() {
   const resetForm = () => {
     setName('')
     setType('Expense')
-    setIcon('📦')
+    setIcon('Package')
     setColor('blue')
   }
 
@@ -72,7 +68,7 @@ export function CategoryManagement() {
     setSelectedCategory(category)
     setName(category.name)
     setType(category.type as 'Income' | 'Expense')
-    setIcon(category.icon || '📦')
+    setIcon(category.icon || 'Package')
     setColor(category.color || 'blue')
     setIsEditOpen(true)
   }
@@ -129,11 +125,11 @@ export function CategoryManagement() {
     }
   }
 
-  const customExpenseCategories = categories.filter((c) => c.type === 'Expense')
-  const customIncomeCategories = categories.filter((c) => c.type === 'Income')
+  const expenseCategories = categories.filter((category) => category.type === 'Expense')
+  const incomeCategories = categories.filter((category) => category.type === 'Income')
 
   const getColorClass = (colorId: string | null | undefined) => {
-    const found = CATEGORY_COLORS.find((c) => c.id === colorId)
+    const found = CATEGORY_COLORS.find((categoryColor) => categoryColor.id === colorId)
     return found?.bg || 'bg-gray-500'
   }
 
@@ -145,36 +141,38 @@ export function CategoryManagement() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder={t('categories.namePlaceholder')}
+          data-testid="category-name-input"
         />
       </div>
 
       <div className="space-y-2">
         <Label>{t('categories.type')}</Label>
-        <Select value={type} onValueChange={(v) => setType(v as 'Income' | 'Expense')}>
-          <SelectTrigger>
+        <Select value={type} onValueChange={(value) => setType(value as 'Income' | 'Expense')}>
+          <SelectTrigger data-testid="category-type-trigger">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="Expense">{t('common.expense')}</SelectItem>
-            <SelectItem value="Income">{t('common.income')}</SelectItem>
+            <SelectItem value="Expense" data-testid="category-type-option-expense">{t('common.expense')}</SelectItem>
+            <SelectItem value="Income" data-testid="category-type-option-income">{t('common.income')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <div className="space-y-2">
         <Label>{t('categories.icon')}</Label>
-        <div className="grid grid-cols-10 gap-2">
-          {CATEGORY_ICONS.map((emoji) => (
+        <div className="grid grid-cols-5 gap-2">
+          {CATEGORY_ICON_OPTIONS.map((iconName) => (
             <button
-              key={emoji}
+              key={iconName}
               type="button"
               className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-lg text-lg transition-all hover:bg-accent',
-                icon === emoji && 'bg-accent ring-2 ring-primary'
+                'flex h-9 w-9 items-center justify-center rounded-lg border transition-all hover:bg-accent',
+                icon === iconName && 'bg-accent ring-2 ring-primary'
               )}
-              onClick={() => setIcon(emoji)}
+              onClick={() => setIcon(iconName)}
+              data-testid={`category-icon-option-${iconName.toLowerCase()}`}
             >
-              {emoji}
+              {renderCategoryIcon(iconName)}
             </button>
           ))}
         </div>
@@ -183,16 +181,17 @@ export function CategoryManagement() {
       <div className="space-y-2">
         <Label>{t('categories.color')}</Label>
         <div className="flex flex-wrap gap-2">
-          {CATEGORY_COLORS.map((c) => (
+          {CATEGORY_COLORS.map((categoryColor) => (
             <button
-              key={c.id}
+              key={categoryColor.id}
               type="button"
               className={cn(
                 'h-8 w-8 rounded-full transition-all',
-                c.bg,
-                color === c.id && 'ring-2 ring-offset-2 ring-primary'
+                categoryColor.bg,
+                color === categoryColor.id && 'ring-2 ring-offset-2 ring-primary'
               )}
-              onClick={() => setColor(c.id)}
+              onClick={() => setColor(categoryColor.id)}
+              data-testid={`category-color-option-${categoryColor.id}`}
             />
           ))}
         </div>
@@ -211,66 +210,66 @@ export function CategoryManagement() {
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex justify-end">
-          <Button onClick={() => setIsAddOpen(true)}>
+          <Button
+            onClick={() => {
+              resetForm()
+              setIsAddOpen(true)
+            }}
+            data-testid="add-category-button"
+          >
             <Plus className="me-2 h-4 w-4" />
             {t('categories.addCategory')}
           </Button>
         </div>
 
-        {/* Custom Expense Categories */}
         <div className="space-y-2">
-          <h4 className="text-sm font-medium">{t('categories.customExpense')}</h4>
-          {customExpenseCategories.length === 0 ? (
+          <h4 className="text-sm font-medium">{t('common.expense')}</h4>
+          {expenseCategories.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t('categories.noCustomExpense')}</p>
           ) : (
             <div className="flex flex-wrap gap-2">
-              {customExpenseCategories.map((cat) => (
+              {expenseCategories.map((category) => (
                 <Badge
-                  key={cat.id}
+                  key={category.id}
                   variant="outline"
-                  className="gap-2 py-1.5 px-3 cursor-pointer hover:bg-accent"
-                  onClick={() => openEditDialog(cat)}
+                  className="cursor-pointer gap-2 px-3 py-1.5 hover:bg-accent"
+                  onClick={() => openEditDialog(category)}
+                  data-testid={`category-badge-${category.name.toLowerCase().replace(/\s+/g, '-')}`}
                 >
-                  <span
-                    className={cn('h-3 w-3 rounded-full', getColorClass(cat.color))}
-                  />
-                  <span>{cat.icon}</span>
-                  <span>{cat.name}</span>
+                  <span className={cn('h-3 w-3 rounded-full', getColorClass(category.color))} />
+                  {renderCategoryIcon(category.icon)}
+                  <span>{category.name}</span>
                 </Badge>
               ))}
             </div>
           )}
         </div>
 
-        {/* Custom Income Categories */}
         <div className="space-y-2">
-          <h4 className="text-sm font-medium">{t('categories.customIncome')}</h4>
-          {customIncomeCategories.length === 0 ? (
+          <h4 className="text-sm font-medium">{t('common.income')}</h4>
+          {incomeCategories.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t('categories.noCustomIncome')}</p>
           ) : (
             <div className="flex flex-wrap gap-2">
-              {customIncomeCategories.map((cat) => (
+              {incomeCategories.map((category) => (
                 <Badge
-                  key={cat.id}
+                  key={category.id}
                   variant="outline"
-                  className="gap-2 py-1.5 px-3 cursor-pointer hover:bg-accent"
-                  onClick={() => openEditDialog(cat)}
+                  className="cursor-pointer gap-2 px-3 py-1.5 hover:bg-accent"
+                  onClick={() => openEditDialog(category)}
                 >
-                  <span
-                    className={cn('h-3 w-3 rounded-full', getColorClass(cat.color))}
-                  />
-                  <span>{cat.icon}</span>
-                  <span>{cat.name}</span>
+                  <span className={cn('h-3 w-3 rounded-full', getColorClass(category.color))} />
+                  {renderCategoryIcon(category.icon)}
+                  <span>{category.name}</span>
                 </Badge>
               ))}
             </div>
           )}
         </div>
 
-        {/* Default Categories Info */}
-        <div className="rounded-lg border p-4 bg-muted/50">
-          <h4 className="text-sm font-medium mb-2">{t('categories.defaultCategories')}</h4>
-          <p className="text-xs text-muted-foreground mb-3">{t('categories.defaultDescription')}</p>
+        <div className="rounded-lg border bg-muted/50 p-4">
+          <h4 className="mb-2 text-sm font-medium">{t('categories.defaultCategories')}</h4>
+          <p className="mb-3 text-xs text-muted-foreground">{t('categories.defaultDescription')}</p>
           <div className="space-y-2">
             <div>
               <span className="text-xs font-medium">{t('common.expense')}:</span>
@@ -288,7 +287,6 @@ export function CategoryManagement() {
         </div>
       </CardContent>
 
-      {/* Add Category Dialog */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
         <DialogContent>
           <DialogHeader>
@@ -300,14 +298,13 @@ export function CategoryManagement() {
             <Button variant="outline" onClick={() => setIsAddOpen(false)}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={handleCreate} disabled={isSubmitting || !name.trim()}>
+            <Button onClick={handleCreate} disabled={isSubmitting || !name.trim()} data-testid="category-submit-button">
               {isSubmitting ? t('common.saving') : t('common.add')}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Edit Category Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent>
           <DialogHeader>
@@ -322,6 +319,7 @@ export function CategoryManagement() {
                 setIsEditOpen(false)
                 setIsDeleteOpen(true)
               }}
+              data-testid="category-delete-button"
             >
               <Trash2 className="me-2 h-4 w-4" />
               {t('common.delete')}
@@ -330,7 +328,7 @@ export function CategoryManagement() {
               <Button variant="outline" onClick={() => setIsEditOpen(false)}>
                 {t('common.cancel')}
               </Button>
-              <Button onClick={handleUpdate} disabled={isSubmitting || !name.trim()}>
+              <Button onClick={handleUpdate} disabled={isSubmitting || !name.trim()} data-testid="category-edit-submit-button">
                 {isSubmitting ? t('common.saving') : t('common.save')}
               </Button>
             </div>
@@ -338,7 +336,6 @@ export function CategoryManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <DialogContent>
           <DialogHeader>
@@ -351,7 +348,12 @@ export function CategoryManagement() {
             <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>
               {t('common.cancel')}
             </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={isSubmitting}>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isSubmitting}
+              data-testid="category-delete-confirm-button"
+            >
               {isSubmitting ? t('common.deleting') : t('common.delete')}
             </Button>
           </DialogFooter>

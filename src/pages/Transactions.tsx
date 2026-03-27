@@ -33,6 +33,7 @@ import { EditTransactionModal } from '@/components/transactions/EditTransactionM
 import { useTransactionStore } from '@/stores/transactionStore'
 import { useUserStore } from '@/stores/userStore'
 import { useDashboardStore } from '@/stores/dashboardStore'
+import { getCategoriesByType, useCategoryStore } from '@/stores/categoryStore'
 import { formatILS } from '@/lib/currency'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/toast'
@@ -40,32 +41,16 @@ import { useShortcutListener } from '@/hooks/useKeyboardShortcuts'
 import { TransactionsSkeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/shared/EmptyState'
 
-const CATEGORIES = [
-  'All',
-  'Housing',
-  'Groceries',
-  'Transportation',
-  'Utilities',
-  'Entertainment',
-  'Healthcare',
-  'Dining Out',
-  'Shopping',
-  'Education',
-  'Salary',
-  'Freelance',
-  'Investments',
-  'Other',
-]
-
 export function Transactions() {
   const { t } = useTranslation()
   const { currentUser } = useUserStore()
   const { transactions, isLoading, fetchTransactions, updateTransaction, deleteTransaction } = useTransactionStore()
   const { fetchDashboardData } = useDashboardStore()
+  const { categories: customCategories, fetchCategories: fetchCustomCategories } = useCategoryStore()
   const { addToast } = useToast()
   
   const [isAddOpen, setIsAddOpen] = useState(false)
-  const [editTransaction, setEditTransaction] = useState<typeof transactions[0] | null>(null)
+  const [editTransaction, setEditTransaction] = useState<Transaction | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -78,10 +63,11 @@ export function Transactions() {
   const isElectron = typeof window !== 'undefined' && window.electronAPI
 
   useEffect(() => {
-    if (isElectron) {
-      fetchTransactions()
+    if (isElectron && currentUser) {
+      fetchTransactions({ userId: currentUser.id })
+      fetchCustomCategories()
     }
-  }, [isElectron, fetchTransactions])
+  }, [currentUser, isElectron, fetchTransactions, fetchCustomCategories])
 
   const handleDelete = async () => {
     if (!deleteId) return
@@ -114,7 +100,7 @@ export function Transactions() {
                   accountId: transactionToDelete.accountId,
                   userId: currentUser.id,
                 })
-                await fetchTransactions()
+                await fetchTransactions({ userId: currentUser.id })
                 await fetchDashboardData(currentUser.id)
                 addToast({
                   title: t('toast.transactionRestored'),
@@ -143,7 +129,9 @@ export function Transactions() {
   }
 
   const handleTransactionAdded = () => {
-    fetchTransactions()
+    if (currentUser) {
+      fetchTransactions({ userId: currentUser.id })
+    }
   }
 
   const handleEditSave = async (data: {
@@ -184,6 +172,14 @@ export function Transactions() {
     return matchesSearch && matchesType && matchesCategory && matchesOwnership
   })
 
+  const categoryOptions = [
+    'All',
+    ...new Set([
+      ...getCategoriesByType(customCategories, 'Expense'),
+      ...getCategoriesByType(customCategories, 'Income'),
+    ]),
+  ]
+
   const totalIncome = filteredTransactions
     .filter(t => t.type === 'Income')
     .reduce((sum, t) => sum + t.amount, 0)
@@ -213,7 +209,7 @@ export function Transactions() {
             View and manage all your transactions
           </p>
         </div>
-        <Button onClick={() => setIsAddOpen(true)}>
+        <Button data-testid="add-transaction-button" onClick={() => setIsAddOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Add Transaction
         </Button>
@@ -298,7 +294,7 @@ export function Transactions() {
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
-                {CATEGORIES.map((cat) => (
+                {categoryOptions.map((cat) => (
                   <SelectItem key={cat} value={cat}>
                     {cat === 'All' ? 'All Categories' : cat}
                   </SelectItem>
@@ -335,7 +331,7 @@ export function Transactions() {
               className="min-h-[400px] border-0"
             />
           ) : (
-            <Table>
+            <Table data-testid="transactions-table">
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
@@ -349,7 +345,7 @@ export function Transactions() {
               </TableHeader>
               <TableBody>
                 {filteredTransactions.map((transaction) => (
-                  <TableRow key={transaction.id}>
+                  <TableRow key={transaction.id} data-testid={`transaction-row-${transaction.id}`}>
                     <TableCell className="font-medium">
                       {formatDate(transaction.date)}
                     </TableCell>

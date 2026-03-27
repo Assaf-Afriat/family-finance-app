@@ -9,10 +9,9 @@ import {
   Clock,
   Pencil,
   Trash2,
-  Bell,
   Repeat,
 } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -405,6 +404,7 @@ export function Bills() {
               <p className="text-lg font-semibold">{formatILS(bill.amount)}</p>
               <div className="mt-2 flex gap-1">
                 <Button
+                  data-testid={`mark-bill-paid-${bill.id}`}
                   variant="outline"
                   size="sm"
                   onClick={() => handleMarkPaid(bill)}

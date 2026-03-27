@@ -89,9 +89,10 @@ export function ProfileSelect() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {displayUsers.map((user, index) => (
+          {displayUsers.map((user) => (
             <Card
               key={user.id}
+              data-testid={`profile-card-${user.id}`}
               className="cursor-pointer transition-all hover:scale-105 hover:shadow-lg"
               onClick={() => handleSelectProfile(user)}
             >
@@ -107,6 +108,7 @@ export function ProfileSelect() {
           ))}
 
           <Card
+            data-testid="profile-card-create"
             className="cursor-pointer border-dashed transition-all hover:scale-105 hover:shadow-lg hover:border-primary"
             onClick={() => setIsAddUserOpen(true)}
           >

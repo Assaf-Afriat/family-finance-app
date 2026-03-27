@@ -7,11 +7,11 @@ interface RecentTransactionsProps {
   transactions: Transaction[]
 }
 
-function formatDate(date: Date): string {
+function formatDate(date: string | Date): string {
   return new Intl.DateTimeFormat('en-IL', {
     month: 'short',
     day: 'numeric',
-  }).format(date)
+  }).format(new Date(date))
 }
 
 export function RecentTransactions({ transactions }: RecentTransactionsProps) {

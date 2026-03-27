@@ -57,6 +57,7 @@ export function Sidebar() {
           <NavLink
             key={item.to}
             to={item.to}
+            data-testid={`nav-${item.to === '/' ? 'dashboard' : item.to.replace('/', '')}`}
             className={({ isActive }) =>
               cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
@@ -77,6 +78,7 @@ export function Sidebar() {
       <div className="p-4">
         <NavLink
           to="/settings"
+          data-testid="nav-settings"
           className={({ isActive }) =>
             cn(
               'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',

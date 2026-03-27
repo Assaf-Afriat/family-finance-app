@@ -19,8 +19,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  LineChart,
-  Line,
   BarChart,
   Bar,
   PieChart as RechartsPieChart,
@@ -42,11 +40,6 @@ import { ReportsSkeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/toast'
 import { formatILS, formatILSCompact } from '@/lib/currency'
 import { generateMonthlyReportPDF } from '@/lib/pdfExport'
-
-const COLORS = [
-  '#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6',
-  '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#6b7280',
-]
 
 const CATEGORY_COLORS: Record<string, string> = {
   Housing: '#3b82f6',
@@ -71,17 +64,17 @@ type Period = 'this-month' | 'last-3-months' | 'last-6-months' | 'this-year' | '
 export function Reports() {
   const { t } = useTranslation()
   const { currentUser } = useUserStore()
-  const { transactions, fetchTransactions } = useTransactionStore()
+  const { transactions, isLoading, fetchTransactions } = useTransactionStore()
   const { showToast } = useToast()
   const [period, setPeriod] = useState<Period>('last-6-months')
 
   const isElectron = typeof window !== 'undefined' && window.electronAPI
 
   useEffect(() => {
-    if (isElectron) {
-      fetchTransactions()
+    if (isElectron && currentUser) {
+      fetchTransactions({ userId: currentUser.id })
     }
-  }, [isElectron, fetchTransactions])
+  }, [currentUser, isElectron, fetchTransactions])
 
   const getFilteredTransactions = () => {
     const now = new Date()
@@ -247,6 +240,11 @@ export function Reports() {
   }
 
   const handleExportPDF = () => {
+    if (filteredTransactions.length === 0) {
+      showToast(t('reports.noDataPeriod'), 'info')
+      return
+    }
+
     try {
       const transactionsForPDF = filteredTransactions.map((t) => ({
         date: new Date(t.date).toLocaleDateString(),
@@ -306,6 +304,8 @@ export function Reports() {
     return <ReportsSkeleton />
   }
 
+  const hasData = filteredTransactions.length > 0
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -317,29 +317,42 @@ export function Reports() {
         </div>
         <div className="flex items-center gap-2">
           <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[180px]" data-testid="reports-period-trigger">
               <Calendar className="me-2 h-4 w-4" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="this-month">{t('reports.thisMonth')}</SelectItem>
-              <SelectItem value="last-3-months">{t('reports.last3Months')}</SelectItem>
-              <SelectItem value="last-6-months">{t('reports.last6Months')}</SelectItem>
-              <SelectItem value="this-year">{t('reports.thisYear')}</SelectItem>
-              <SelectItem value="all-time">{t('reports.allTime')}</SelectItem>
+              <SelectItem value="this-month" data-testid="reports-period-option-this-month">{t('reports.thisMonth')}</SelectItem>
+              <SelectItem value="last-3-months" data-testid="reports-period-option-last-3-months">{t('reports.last3Months')}</SelectItem>
+              <SelectItem value="last-6-months" data-testid="reports-period-option-last-6-months">{t('reports.last6Months')}</SelectItem>
+              <SelectItem value="this-year" data-testid="reports-period-option-this-year">{t('reports.thisYear')}</SelectItem>
+              <SelectItem value="all-time" data-testid="reports-period-option-all-time">{t('reports.allTime')}</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={handleExportPDF} variant="outline">
+          <Button
+            onClick={handleExportPDF}
+            variant="outline"
+            data-testid="reports-export-button"
+            disabled={!hasData}
+          >
             <Download className="me-2 h-4 w-4" />
             {t('reports.exportPDF')}
           </Button>
         </div>
       </div>
 
+      {!hasData && (
+        <Card data-testid="reports-empty-state">
+          <CardContent className="flex h-40 items-center justify-center text-muted-foreground">
+            {t('reports.noDataPeriod')}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-4" data-testid="reports-total-income">
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-green-100 p-2 dark:bg-green-900/30">
                 <TrendingUp className="h-5 w-5 text-green-600" />
@@ -352,7 +365,7 @@ export function Reports() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-4" data-testid="reports-total-expenses">
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-red-100 p-2 dark:bg-red-900/30">
                 <TrendingDown className="h-5 w-5 text-red-600" />
@@ -365,7 +378,7 @@ export function Reports() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-4" data-testid="reports-net-savings">
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/30">
                 <Wallet className="h-5 w-5 text-blue-600" />
@@ -380,7 +393,7 @@ export function Reports() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-4" data-testid="reports-savings-rate">
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-purple-100 p-2 dark:bg-purple-900/30">
                 <PieChart className="h-5 w-5 text-purple-600" />

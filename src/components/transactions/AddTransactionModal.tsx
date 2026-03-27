@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { TrendingUp, TrendingDown } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { TrendingDown, TrendingUp } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -22,7 +22,9 @@ import { useUserStore } from '@/stores/userStore'
 import { useAccountStore } from '@/stores/accountStore'
 import { useTransactionStore } from '@/stores/transactionStore'
 import { useDashboardStore } from '@/stores/dashboardStore'
+import { getCategoriesByType, useCategoryStore } from '@/stores/categoryStore'
 import { useToast } from '@/components/ui/toast'
+import { formatILS } from '@/lib/currency'
 import { cn } from '@/lib/utils'
 import { transactionSchema, validateForm } from '@/lib/validations'
 
@@ -31,27 +33,6 @@ interface AddTransactionModalProps {
   onOpenChange: (open: boolean) => void
   onSuccess?: () => void
 }
-
-const EXPENSE_CATEGORIES = [
-  'Housing',
-  'Groceries',
-  'Transportation',
-  'Utilities',
-  'Entertainment',
-  'Healthcare',
-  'Dining Out',
-  'Shopping',
-  'Education',
-  'Other',
-]
-
-const INCOME_CATEGORIES = [
-  'Salary',
-  'Freelance',
-  'Investments',
-  'Gifts',
-  'Other Income',
-]
 
 export function AddTransactionModal({
   open,
@@ -62,6 +43,7 @@ export function AddTransactionModal({
   const { accounts, fetchAccounts } = useAccountStore()
   const { createTransaction } = useTransactionStore()
   const { fetchDashboardData } = useDashboardStore()
+  const { categories: customCategories, fetchCategories } = useCategoryStore()
   const { addToast } = useToast()
 
   const [type, setType] = useState<'Expense' | 'Income'>('Expense')
@@ -77,8 +59,9 @@ export function AddTransactionModal({
   useEffect(() => {
     if (open) {
       fetchAccounts()
+      fetchCategories()
     }
-  }, [open, fetchAccounts])
+  }, [open, fetchAccounts, fetchCategories])
 
   useEffect(() => {
     if (accounts.length > 0 && !accountId) {
@@ -90,7 +73,7 @@ export function AddTransactionModal({
     setCategory('')
   }, [type])
 
-  const categories = type === 'Expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES
+  const categories = getCategoriesByType(customCategories, type)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -127,10 +110,8 @@ export function AddTransactionModal({
         userId: currentUser.id,
       })
 
-      // Refresh dashboard data
       await fetchDashboardData(currentUser.id)
 
-      // Reset form
       setAmount('')
       setDescription('')
       setCategory('')
@@ -139,7 +120,7 @@ export function AddTransactionModal({
 
       addToast({
         title: 'Transaction added',
-        description: `${type} of ₪${amount} has been recorded.`,
+        description: `${type} of ${formatILS(parseFloat(amount) || 0)} has been recorded.`,
         type: 'success',
       })
 
@@ -158,9 +139,7 @@ export function AddTransactionModal({
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Add Transaction</DialogTitle>
-          <DialogDescription>
-            Record a new income or expense transaction.
-          </DialogDescription>
+          <DialogDescription>Record a new income or expense transaction.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -168,10 +147,7 @@ export function AddTransactionModal({
             <Button
               type="button"
               variant={type === 'Expense' ? 'default' : 'outline'}
-              className={cn(
-                'flex-1',
-                type === 'Expense' && 'bg-red-600 hover:bg-red-700'
-              )}
+              className={cn('flex-1', type === 'Expense' && 'bg-red-600 hover:bg-red-700')}
               onClick={() => setType('Expense')}
             >
               <TrendingDown className="mr-2 h-4 w-4" />
@@ -180,10 +156,7 @@ export function AddTransactionModal({
             <Button
               type="button"
               variant={type === 'Income' ? 'default' : 'outline'}
-              className={cn(
-                'flex-1',
-                type === 'Income' && 'bg-green-600 hover:bg-green-700'
-              )}
+              className={cn('flex-1', type === 'Income' && 'bg-green-600 hover:bg-green-700')}
               onClick={() => setType('Income')}
             >
               <TrendingUp className="mr-2 h-4 w-4" />
@@ -192,9 +165,10 @@ export function AddTransactionModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="amount">Amount (₪)</Label>
+            <Label htmlFor="amount">Amount (ILS)</Label>
             <Input
               id="amount"
+              data-testid="transaction-amount-input"
               type="number"
               step="0.01"
               min="0"
@@ -208,13 +182,17 @@ export function AddTransactionModal({
           <div className="space-y-2">
             <Label htmlFor="category">Category</Label>
             <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger>
+              <SelectTrigger data-testid="transaction-category-trigger">
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
-                {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
+                {categories.map((categoryName) => (
+                  <SelectItem
+                    key={categoryName}
+                    value={categoryName}
+                    data-testid={`transaction-category-option-${categoryName.toLowerCase().replace(/\s+/g, '-')}`}
+                  >
+                    {categoryName}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -225,6 +203,7 @@ export function AddTransactionModal({
             <Label htmlFor="description">Description (optional)</Label>
             <Input
               id="description"
+              data-testid="transaction-description-input"
               placeholder="Enter description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -235,13 +214,17 @@ export function AddTransactionModal({
             <div className="space-y-2">
               <Label htmlFor="account">Account</Label>
               <Select value={accountId} onValueChange={setAccountId}>
-                <SelectTrigger>
+                <SelectTrigger data-testid="transaction-account-trigger">
                   <SelectValue placeholder="Select account" />
                 </SelectTrigger>
                 <SelectContent>
-                  {accounts.map((acc) => (
-                    <SelectItem key={acc.id} value={acc.id}>
-                      {acc.name}
+                  {accounts.map((account) => (
+                    <SelectItem
+                      key={account.id}
+                      value={account.id}
+                      data-testid={`transaction-account-option-${account.id}`}
+                    >
+                      {account.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -250,16 +233,17 @@ export function AddTransactionModal({
 
             <div className="space-y-2">
               <Label htmlFor="ownership">Ownership</Label>
-              <Select
-                value={ownership}
-                onValueChange={(v) => setOwnership(v as 'Personal' | 'Joint')}
-              >
-                <SelectTrigger>
+              <Select value={ownership} onValueChange={(value) => setOwnership(value as 'Personal' | 'Joint')}>
+                <SelectTrigger data-testid="transaction-ownership-trigger">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Personal">Personal</SelectItem>
-                  <SelectItem value="Joint">Joint</SelectItem>
+                  <SelectItem value="Personal" data-testid="transaction-ownership-option-personal">
+                    Personal
+                  </SelectItem>
+                  <SelectItem value="Joint" data-testid="transaction-ownership-option-joint">
+                    Joint
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -269,25 +253,20 @@ export function AddTransactionModal({
             <Label htmlFor="date">Date</Label>
             <Input
               id="date"
+              data-testid="transaction-date-input"
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
             />
           </div>
 
-          {error && (
-            <p className="text-sm text-red-600">{error}</p>
-          )}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting} data-testid="transaction-submit-button">
               {isSubmitting ? 'Adding...' : 'Add Transaction'}
             </Button>
           </DialogFooter>

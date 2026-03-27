@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/components/ui/toast'
+import { formatILS } from '@/lib/currency'
 
 interface TransferModalProps {
   open: boolean
@@ -79,7 +80,7 @@ export function TransferModal({
       return
     }
 
-    const fromAccount = accounts.find((a) => a.id === fromAccountId)
+    const fromAccount = accounts.find((account) => account.id === fromAccountId)
     if (fromAccount && fromAccount.balance < transferAmount) {
       setError(t('transfer.insufficientFunds'))
       return
@@ -111,8 +112,7 @@ export function TransferModal({
     }
   }
 
-  const fromAccount = accounts.find((a) => a.id === fromAccountId)
-  const toAccount = accounts.find((a) => a.id === toAccountId)
+  const fromAccount = accounts.find((account) => account.id === fromAccountId)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -129,13 +129,17 @@ export function TransferModal({
           <div className="space-y-2">
             <Label>{t('transfer.fromAccount')}</Label>
             <Select value={fromAccountId} onValueChange={setFromAccountId}>
-              <SelectTrigger>
+              <SelectTrigger data-testid="transfer-from-account-trigger">
                 <SelectValue placeholder={t('transfer.selectFromAccount')} />
               </SelectTrigger>
               <SelectContent>
-                {accounts.map((acc) => (
-                  <SelectItem key={acc.id} value={acc.id}>
-                    {acc.name} (₪{acc.balance.toLocaleString()})
+                {accounts.map((account) => (
+                  <SelectItem
+                    key={account.id}
+                    value={account.id}
+                    data-testid={`transfer-from-account-option-${account.id}`}
+                  >
+                    {account.name} ({formatILS(account.balance)})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -143,21 +147,25 @@ export function TransferModal({
           </div>
 
           <div className="flex justify-center">
-            <ArrowRightLeft className="h-6 w-6 text-muted-foreground rotate-90" />
+            <ArrowRightLeft className="h-6 w-6 rotate-90 text-muted-foreground" />
           </div>
 
           <div className="space-y-2">
             <Label>{t('transfer.toAccount')}</Label>
             <Select value={toAccountId} onValueChange={setToAccountId}>
-              <SelectTrigger>
+              <SelectTrigger data-testid="transfer-to-account-trigger">
                 <SelectValue placeholder={t('transfer.selectToAccount')} />
               </SelectTrigger>
               <SelectContent>
                 {accounts
-                  .filter((acc) => acc.id !== fromAccountId)
-                  .map((acc) => (
-                    <SelectItem key={acc.id} value={acc.id}>
-                      {acc.name} (₪{acc.balance.toLocaleString()})
+                  .filter((account) => account.id !== fromAccountId)
+                  .map((account) => (
+                    <SelectItem
+                      key={account.id}
+                      value={account.id}
+                      data-testid={`transfer-to-account-option-${account.id}`}
+                    >
+                      {account.name} ({formatILS(account.balance)})
                     </SelectItem>
                   ))}
               </SelectContent>
@@ -165,8 +173,9 @@ export function TransferModal({
           </div>
 
           <div className="space-y-2">
-            <Label>{t('common.amount')} (₪)</Label>
+            <Label>{t('common.amount')} (ILS)</Label>
             <Input
+              data-testid="transfer-amount-input"
               type="number"
               step="0.01"
               min="0"
@@ -176,7 +185,7 @@ export function TransferModal({
             />
             {fromAccount && (
               <p className="text-xs text-muted-foreground">
-                {t('transfer.availableBalance')}: ₪{fromAccount.balance.toLocaleString()}
+                {t('transfer.availableBalance')}: {formatILS(fromAccount.balance)}
               </p>
             )}
           </div>
@@ -184,6 +193,7 @@ export function TransferModal({
           <div className="space-y-2">
             <Label>{t('common.description')} ({t('common.optional')})</Label>
             <Input
+              data-testid="transfer-description-input"
               placeholder={t('transfer.descriptionPlaceholder')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -196,7 +206,7 @@ export function TransferModal({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {t('common.cancel')}
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting} data-testid="transfer-submit-button">
               {isSubmitting ? t('transfer.transferring') : t('transfer.transfer')}
             </Button>
           </DialogFooter>

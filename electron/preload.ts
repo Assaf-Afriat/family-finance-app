@@ -13,7 +13,7 @@ const electronAPI = {
   deleteUser: (id: string) => ipcRenderer.invoke('db:deleteUser', id),
 
   // Accounts
-  getAccounts: (userId?: string) => ipcRenderer.invoke('db:getAccounts', userId),
+  getAccounts: (userId: string) => ipcRenderer.invoke('db:getAccounts', userId),
   createAccount: (data: {
     name: string
     type: string
@@ -31,8 +31,8 @@ const electronAPI = {
   }) => ipcRenderer.invoke('db:updateAccount', id, data),
 
   // Transactions
-  getTransactions: (filters?: {
-    userId?: string
+  getTransactions: (filters: {
+    userId: string
     accountId?: string
     startDate?: string
     endDate?: string
@@ -86,9 +86,14 @@ const electronAPI = {
 
   // Categories
   getCategories: (type?: string) => ipcRenderer.invoke('db:getCategories', type),
+  createCategory: (data: { name: string; icon?: string; color?: string; type: string }) =>
+    ipcRenderer.invoke('db:createCategory', data),
+  updateCategory: (id: string, data: { name?: string; icon?: string; color?: string; type?: string }) =>
+    ipcRenderer.invoke('db:updateCategory', id, data),
+  deleteCategory: (id: string) => ipcRenderer.invoke('db:deleteCategory', id),
 
   // Recurring Transactions
-  getRecurringTransactions: (userId?: string) => 
+  getRecurringTransactions: (userId: string) => 
     ipcRenderer.invoke('db:getRecurringTransactions', userId),
   createRecurringTransaction: (data: {
     amount: number
@@ -156,8 +161,10 @@ const electronAPI = {
   getOverdueBills: (userId: string) => ipcRenderer.invoke('db:getOverdueBills', userId),
 
   // Backup and Restore
-  backupDatabase: () => ipcRenderer.invoke('db:backupDatabase'),
-  restoreDatabase: () => ipcRenderer.invoke('db:restoreDatabase'),
+  exportTransactionsCSV: (userId: string, targetPath?: string) =>
+    ipcRenderer.invoke('db:exportTransactionsCsv', userId, targetPath),
+  backupDatabase: (targetPath?: string) => ipcRenderer.invoke('db:backupDatabase', targetPath),
+  restoreDatabase: (sourcePath?: string) => ipcRenderer.invoke('db:restoreDatabase', sourcePath),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)

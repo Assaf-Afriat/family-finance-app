@@ -9,11 +9,15 @@
     "preview": "vite preview",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "electron:build": "vite build && electron-builder",
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "vitest run",
+    "test:e2e": "start-server-and-test \"npm run dev -- --host 127.0.0.1\" http-get://127.0.0.1:5173 \"playwright test\"",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "db:reset": "prisma db push --force-reset && npx tsx prisma/seed.ts"
+    "db:reset": "prisma db push --force-reset && npx tsx prisma/seed.ts",
+    "db:reset:test": "cross-env FAMILY_FINANCE_DB_PATH=prisma/family-finance.test.db tsx scripts/reset-test-db.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",
@@ -29,7 +33,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "i18next": "^25.8.13",
-    "jspdf": "^4.2.0",
+    "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.344.0",
     "react": "^18.2.0",
@@ -43,29 +47,33 @@
     "zustand": "^4.5.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@types/node": "^20.11.0",
     "@types/react": "^18.2.55",
     "@types/react-dom": "^18.2.19",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.17",
     "concurrently": "^8.2.2",
+    "cross-env": "^10.1.0",
     "electron": "^29.0.0",
     "electron-builder": "^24.9.1",
     "postcss": "^8.4.35",
     "prisma": "^5.10.0",
+    "start-server-and-test": "^3.0.0",
     "tailwindcss": "^3.4.1",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3",
     "vite": "^5.1.0",
     "vite-plugin-electron": "^0.28.0",
     "vite-plugin-electron-renderer": "^0.14.5",
+    "vitest": "^4.1.2",
     "wait-on": "^7.2.0"
   },
   "build": {
     "appId": "com.family.finance",
     "productName": "Family Finance",
     "directories": {
-      "output": "release"
+      "output": "release-build"
     },
     "files": [
       "dist/**/*",

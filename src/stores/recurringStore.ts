@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useUserStore } from '@/stores/userStore'
 
 interface RecurringTransactionState {
   recurringTransactions: RecurringTransaction[]
@@ -44,8 +45,9 @@ export const useRecurringStore = create<RecurringTransactionState>((set) => ({
   fetchRecurringTransactions: async (userId) => {
     set({ isLoading: true })
     try {
-      if (window.electronAPI) {
-        const recurringTransactions = await window.electronAPI.getRecurringTransactions(userId)
+      const scopedUserId = userId ?? useUserStore.getState().currentUser?.id
+      if (window.electronAPI && scopedUserId) {
+        const recurringTransactions = await window.electronAPI.getRecurringTransactions(scopedUserId)
         set({ recurringTransactions })
       }
     } catch (error) {

@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, PiggyBank, TrendingUp, AlertTriangle, CheckCircle, Pencil, Trash2 } from 'lucide-react'
+import {
+  AlertTriangle,
+  CheckCircle,
+  Pencil,
+  PiggyBank,
+  Plus,
+  Trash2,
+  TrendingUp,
+} from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -25,44 +33,22 @@ import {
 import { useBudgetStore } from '@/stores/budgetStore'
 import { useUserStore } from '@/stores/userStore'
 import { useDashboardStore } from '@/stores/dashboardStore'
+import { getCategoriesByType, useCategoryStore } from '@/stores/categoryStore'
 import { formatILS } from '@/lib/currency'
+import { renderCategoryIcon } from '@/lib/categoryIcons'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/toast'
 import { BudgetsSkeleton } from '@/components/ui/skeleton'
-
-const EXPENSE_CATEGORIES = [
-  'Housing',
-  'Groceries',
-  'Transportation',
-  'Utilities',
-  'Entertainment',
-  'Healthcare',
-  'Dining Out',
-  'Shopping',
-  'Education',
-  'Other',
-]
-
-const CATEGORY_ICONS: Record<string, string> = {
-  Housing: '🏠',
-  Groceries: '🛒',
-  Transportation: '🚗',
-  Utilities: '💡',
-  Entertainment: '🎬',
-  Healthcare: '🏥',
-  'Dining Out': '🍽️',
-  Shopping: '🛍️',
-  Education: '📚',
-  Other: '📦',
-}
+import type { Budget } from '@/types'
 
 export function Budgets() {
   const { t } = useTranslation()
   const { currentUser } = useUserStore()
   const { budgets, isLoading, fetchBudgets, createOrUpdateBudget, deleteBudget } = useBudgetStore()
   const { stats, fetchDashboardData } = useDashboardStore()
+  const { categories, fetchCategories } = useCategoryStore()
   const { showToast } = useToast()
-  
+
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
@@ -81,20 +67,47 @@ export function Budgets() {
     if (isElectron && currentUser) {
       fetchBudgets(currentUser.id, currentMonth, currentYear)
       fetchDashboardData(currentUser.id)
+      fetchCategories()
     }
-  }, [isElectron, currentUser, currentMonth, currentYear, fetchBudgets, fetchDashboardData])
+  }, [isElectron, currentUser, currentMonth, currentYear, fetchBudgets, fetchDashboardData, fetchCategories])
 
-  const budgetsWithSpent = stats?.budgetWithSpent || budgets.map(b => ({
-    ...b,
+  const budgetsWithSpent = stats?.budgetWithSpent || budgets.map((budget) => ({
+    ...budget,
     spent: 0,
   }))
 
-  const totalBudget = budgetsWithSpent.reduce((sum, b) => sum + b.limit, 0)
-  const totalSpent = budgetsWithSpent.reduce((sum, b) => sum + (b.spent || 0), 0)
+  const totalBudget = budgetsWithSpent.reduce((sum, budget) => sum + budget.limit, 0)
+  const totalSpent = budgetsWithSpent.reduce((sum, budget) => sum + (budget.spent || 0), 0)
   const totalRemaining = totalBudget - totalSpent
   const overallPercentage = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const availableCategories = getCategoriesByType(categories, 'Expense').filter(
+    (category) => !budgetsWithSpent.some((budget) => budget.category === category)
+  )
+
+  const refreshBudgetState = async (userId: string) => {
+    await fetchBudgets(userId, currentMonth, currentYear)
+    await fetchDashboardData(userId)
+  }
+
+  const resetDialogState = () => {
+    setSelectedCategory('')
+    setBudgetLimit('')
+    setEditingBudget(null)
+    setError('')
+  }
+
+  const validateBudgetLimit = () => {
+    const limit = parseFloat(budgetLimit)
+    if (!limit || limit <= 0) {
+      setError('Please enter a valid budget amount')
+      return null
+    }
+
+    return limit
+  }
+
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
@@ -108,11 +121,8 @@ export function Budgets() {
       return
     }
 
-    const limit = parseFloat(budgetLimit)
-    if (!limit || limit <= 0) {
-      setError('Please enter a valid budget amount')
-      return
-    }
+    const limit = validateBudgetLimit()
+    if (!limit) return
 
     setIsSubmitting(true)
 
@@ -124,17 +134,61 @@ export function Budgets() {
         year: currentYear,
         userId: currentUser.id,
       })
-
-      setSelectedCategory('')
-      setBudgetLimit('')
+      showToast(t('toast.budgetCreated'), 'success')
       setIsAddOpen(false)
-      
-      // Refresh data
-      await fetchBudgets(currentUser.id, currentMonth, currentYear)
-      await fetchDashboardData(currentUser.id)
+      resetDialogState()
+      await refreshBudgetState(currentUser.id)
     } catch (err) {
       console.error('Failed to create budget:', err)
       setError('Failed to create budget. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+
+    if (!currentUser || !editingBudget) return
+
+    const limit = validateBudgetLimit()
+    if (!limit) return
+
+    setIsSubmitting(true)
+    try {
+      await createOrUpdateBudget({
+        category: editingBudget.category,
+        limit,
+        month: currentMonth,
+        year: currentYear,
+        userId: currentUser.id,
+      })
+      showToast(t('toast.budgetUpdated'), 'success')
+      setIsEditOpen(false)
+      resetDialogState()
+      await refreshBudgetState(currentUser.id)
+    } catch (err) {
+      console.error('Failed to update budget:', err)
+      setError('Failed to update budget')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!currentUser || !editingBudget?.id) return
+
+    setIsSubmitting(true)
+    try {
+      await deleteBudget(editingBudget.id)
+      showToast(t('toast.budgetDeleted'), 'success')
+      setIsDeleteOpen(false)
+      resetDialogState()
+      await refreshBudgetState(currentUser.id)
+    } catch (err) {
+      console.error('Failed to delete budget:', err)
+      showToast(t('toast.budgetDeleteFailed'), 'error')
     } finally {
       setIsSubmitting(false)
     }
@@ -171,21 +225,6 @@ export function Budgets() {
     )
   }
 
-  const existingCategories = budgetsWithSpent.map(b => b.category)
-  const availableCategories = EXPENSE_CATEGORIES.filter(c => !existingCategories.includes(c))
-
-  const mockBudgets = [
-    { category: 'Groceries', limit: 3000, spent: 2400 },
-    { category: 'Entertainment', limit: 1500, spent: 1350 },
-    { category: 'Transportation', limit: 800, spent: 480 },
-    { category: 'Dining Out', limit: 1200, spent: 900 },
-    { category: 'Utilities', limit: 600, spent: 500 },
-  ]
-
-  const displayBudgets = isElectron && budgetsWithSpent.length > 0 
-    ? budgetsWithSpent 
-    : mockBudgets
-
   if (isLoading && isElectron) {
     return <BudgetsSkeleton />
   }
@@ -199,7 +238,14 @@ export function Budgets() {
             Set and track your spending budgets for {now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </p>
         </div>
-        <Button onClick={() => setIsAddOpen(true)} disabled={availableCategories.length === 0}>
+        <Button
+          onClick={() => {
+            resetDialogState()
+            setIsAddOpen(true)
+          }}
+          disabled={availableCategories.length === 0}
+          data-testid="add-budget-button"
+        >
           <Plus className="mr-2 h-4 w-4" />
           Add Budget
         </Button>
@@ -235,21 +281,12 @@ export function Budgets() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className={cn(
-                "rounded-lg p-2",
-                totalRemaining >= 0 ? "bg-green-100" : "bg-red-100"
-              )}>
-                <PiggyBank className={cn(
-                  "h-5 w-5",
-                  totalRemaining >= 0 ? "text-green-600" : "text-red-600"
-                )} />
+              <div className={cn('rounded-lg p-2', totalRemaining >= 0 ? 'bg-green-100' : 'bg-red-100')}>
+                <PiggyBank className={cn('h-5 w-5', totalRemaining >= 0 ? 'text-green-600' : 'text-red-600')} />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Remaining</p>
-                <p className={cn(
-                  "text-xl font-bold",
-                  totalRemaining >= 0 ? "text-green-600" : "text-red-600"
-                )}>
+                <p className={cn('text-xl font-bold', totalRemaining >= 0 ? 'text-green-600' : 'text-red-600')}>
                   {formatILS(totalRemaining)}
                 </p>
               </div>
@@ -274,11 +311,7 @@ export function Budgets() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {isLoading ? (
-          <div className="col-span-full flex h-[200px] items-center justify-center text-muted-foreground">
-            Loading budgets...
-          </div>
-        ) : displayBudgets.length === 0 ? (
+        {budgetsWithSpent.length === 0 ? (
           <div className="col-span-full flex h-[200px] flex-col items-center justify-center text-muted-foreground">
             <p>No budgets set for this month</p>
             <Button variant="link" onClick={() => setIsAddOpen(true)}>
@@ -286,34 +319,39 @@ export function Budgets() {
             </Button>
           </div>
         ) : (
-          displayBudgets.map((budget) => {
-            const percentage = Math.round((budget.spent / budget.limit) * 100)
-            const remaining = budget.limit - budget.spent
-            
+          budgetsWithSpent.map((budget) => {
+            const persistedBudget = budget as Budget & { spent: number }
+            const percentage = Math.round(((budget.spent || 0) / budget.limit) * 100)
+            const remaining = budget.limit - (budget.spent || 0)
+
             return (
-              <Card key={budget.category}>
+              <Card key={budget.category} data-testid={`budget-card-${budget.category.toLowerCase().replace(/\s+/g, '-')}`}>
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-2xl">{CATEGORY_ICONS[budget.category] || '📦'}</span>
+                      <span className="rounded-lg bg-muted p-2">
+                        {renderCategoryIcon(persistedBudget.category === 'Dining Out' ? 'Utensils' : persistedBudget.category === 'Utilities' ? 'Bolt' : persistedBudget.category === 'Groceries' ? 'Cart' : persistedBudget.category === 'Shopping' ? 'ShoppingBag' : persistedBudget.category === 'Healthcare' ? 'HeartPulse' : persistedBudget.category === 'Transportation' ? 'Car' : persistedBudget.category === 'Education' ? 'BookOpen' : persistedBudget.category === 'Housing' ? 'Home' : 'Package')}
+                      </span>
                       <div>
                         <CardTitle className="text-base">{budget.category}</CardTitle>
                         <CardDescription>
-                          {formatILS(budget.spent)} of {formatILS(budget.limit)}
+                          {formatILS(budget.spent || 0)} of {formatILS(budget.limit)}
                         </CardDescription>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
                       {getStatusBadge(percentage)}
-                      {isElectron && 'id' in budget && (
+                      {isElectron && (
                         <>
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7"
+                            data-testid={`budget-edit-${persistedBudget.id}`}
                             onClick={() => {
-                              setEditingBudget({ category: budget.category, limit: budget.limit, id: budget.id })
-                              setBudgetLimit(budget.limit.toString())
+                              setEditingBudget({ category: persistedBudget.category, limit: persistedBudget.limit, id: persistedBudget.id })
+                              setBudgetLimit(persistedBudget.limit.toString())
+                              setError('')
                               setIsEditOpen(true)
                             }}
                           >
@@ -323,8 +361,10 @@ export function Budgets() {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-destructive hover:text-destructive"
+                            data-testid={`budget-delete-${persistedBudget.id}`}
                             onClick={() => {
-                              setEditingBudget({ category: budget.category, limit: budget.limit, id: budget.id })
+                              setEditingBudget({ category: persistedBudget.category, limit: persistedBudget.limit, id: persistedBudget.id })
+                              setError('')
                               setIsDeleteOpen(true)
                             }}
                           >
@@ -349,10 +389,7 @@ export function Budgets() {
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">{t('budgets.remaining')}</span>
-                    <span className={cn(
-                      "font-semibold",
-                      remaining >= 0 ? "text-green-600" : "text-red-600"
-                    )}>
+                    <span className={cn('font-semibold', remaining >= 0 ? 'text-green-600' : 'text-red-600')}>
                       {formatILS(remaining)}
                     </span>
                   </div>
@@ -367,36 +404,39 @@ export function Budgets() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('budgets.addBudget')}</DialogTitle>
-            <DialogDescription>
-              {t('budgets.setBudgetLimit')}
-            </DialogDescription>
+            <DialogDescription>{t('budgets.setBudgetLimit')}</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleCreate} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="category">{t('common.category')}</Label>
+              <Label htmlFor="budget-category">{t('common.category')}</Label>
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger>
+                <SelectTrigger data-testid="budget-category-trigger">
                   <SelectValue placeholder={t('common.category')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableCategories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {CATEGORY_ICONS[cat]} {cat}
+                  {availableCategories.map((category) => (
+                    <SelectItem
+                      key={category}
+                      value={category}
+                      data-testid={`budget-category-option-${category.toLowerCase().replace(/\s+/g, '-')}`}
+                    >
+                      {category}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="limit">{t('budgets.limit')} (₪)</Label>
+              <Label htmlFor="budget-limit">{t('budgets.limit')} (ILS)</Label>
               <Input
-                id="limit"
+                id="budget-limit"
                 type="number"
                 step="100"
                 min="0"
                 placeholder="0"
                 value={budgetLimit}
                 onChange={(e) => setBudgetLimit(e.target.value)}
+                data-testid="budget-limit-input"
               />
             </div>
             {error && <p className="text-sm text-red-600">{error}</p>}
@@ -404,7 +444,7 @@ export function Budgets() {
               <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>
                 {t('common.cancel')}
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting} data-testid="budget-submit-button">
                 {isSubmitting ? t('common.saving') : t('budgets.addBudget')}
               </Button>
             </DialogFooter>
@@ -412,64 +452,24 @@ export function Budgets() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Budget Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('budgets.updateBudget')}</DialogTitle>
-            <DialogDescription>
-              {editingBudget && (
-                <>
-                  {CATEGORY_ICONS[editingBudget.category]} {editingBudget.category}
-                </>
-              )}
-            </DialogDescription>
+            <DialogDescription>{editingBudget?.category}</DialogDescription>
           </DialogHeader>
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault()
-              if (!currentUser || !editingBudget) return
-              
-              const limit = parseFloat(budgetLimit)
-              if (!limit || limit <= 0) {
-                setError('Please enter a valid budget amount')
-                return
-              }
-
-              setIsSubmitting(true)
-              try {
-                await createOrUpdateBudget({
-                  category: editingBudget.category,
-                  limit,
-                  month: currentMonth,
-                  year: currentYear,
-                  userId: currentUser.id,
-                })
-                showToast(t('toast.budgetUpdated'), 'success')
-                setIsEditOpen(false)
-                setBudgetLimit('')
-                setEditingBudget(null)
-                await fetchBudgets(currentUser.id, currentMonth, currentYear)
-                await fetchDashboardData(currentUser.id)
-              } catch (err) {
-                console.error('Failed to update budget:', err)
-                setError('Failed to update budget')
-              } finally {
-                setIsSubmitting(false)
-              }
-            }}
-            className="space-y-4"
-          >
+          <form onSubmit={handleUpdate} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-limit">{t('budgets.limit')} (₪)</Label>
+              <Label htmlFor="edit-budget-limit">{t('budgets.limit')} (ILS)</Label>
               <Input
-                id="edit-limit"
+                id="edit-budget-limit"
                 type="number"
                 step="100"
                 min="0"
                 placeholder="0"
                 value={budgetLimit}
                 onChange={(e) => setBudgetLimit(e.target.value)}
+                data-testid="budget-edit-limit-input"
               />
             </div>
             {error && <p className="text-sm text-red-600">{error}</p>}
@@ -477,7 +477,7 @@ export function Budgets() {
               <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
                 {t('common.cancel')}
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting} data-testid="budget-edit-submit-button">
                 {isSubmitting ? t('common.saving') : t('common.saveChanges')}
               </Button>
             </DialogFooter>
@@ -485,17 +485,12 @@ export function Budgets() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Budget Dialog */}
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('common.delete')} {t('budgets.title')}</DialogTitle>
             <DialogDescription>
-              {editingBudget && (
-                <>
-                  {t('budgets.confirmDelete', { category: editingBudget.category })}
-                </>
-              )}
+              {editingBudget ? t('budgets.confirmDelete', { category: editingBudget.category }) : null}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -505,23 +500,8 @@ export function Budgets() {
             <Button
               variant="destructive"
               disabled={isSubmitting}
-              onClick={async () => {
-                if (!currentUser || !editingBudget?.id) return
-                setIsSubmitting(true)
-                try {
-                  await deleteBudget(editingBudget.id)
-                  showToast(t('toast.budgetDeleted'), 'success')
-                  setIsDeleteOpen(false)
-                  setEditingBudget(null)
-                  await fetchBudgets(currentUser.id, currentMonth, currentYear)
-                  await fetchDashboardData(currentUser.id)
-                } catch (err) {
-                  console.error('Failed to delete budget:', err)
-                  showToast(t('toast.budgetDeleteFailed'), 'error')
-                } finally {
-                  setIsSubmitting(false)
-                }
-              }}
+              onClick={handleDelete}
+              data-testid="budget-delete-confirm-button"
             >
               {isSubmitting ? t('common.deleting') : t('common.delete')}
             </Button>

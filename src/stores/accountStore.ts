@@ -1,4 +1,6 @@
 import { create } from 'zustand'
+import type { Account } from '@/types'
+import { useUserStore } from '@/stores/userStore'
 
 interface AccountState {
   accounts: Account[]
@@ -32,8 +34,9 @@ export const useAccountStore = create<AccountState>((set) => ({
   fetchAccounts: async (userId) => {
     set({ isLoading: true })
     try {
-      if (window.electronAPI) {
-        const accounts = await window.electronAPI.getAccounts(userId)
+      const scopedUserId = userId ?? useUserStore.getState().currentUser?.id
+      if (window.electronAPI && scopedUserId) {
+        const accounts = await window.electronAPI.getAccounts(scopedUserId)
         set({ accounts })
       }
     } catch (error) {

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { Category } from '@/types'
 
 interface CategoryState {
   categories: Category[]
@@ -22,7 +23,7 @@ const DEFAULT_INCOME_CATEGORIES = [
   'Bonus', 'Gifts', 'Refunds', 'Other'
 ]
 
-export const useCategoryStore = create<CategoryState>((set, get) => ({
+export const useCategoryStore = create<CategoryState>((set) => ({
   categories: [],
   isLoading: false,
 

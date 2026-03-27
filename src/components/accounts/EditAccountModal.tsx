@@ -37,7 +37,7 @@ interface EditAccountModalProps {
   }) => Promise<void>
 }
 
-const ACCOUNT_TYPES = ['checking', 'savings', 'credit', 'cash', 'investment']
+const ACCOUNT_TYPES = ['Checking', 'Savings', 'Credit', 'Cash']
 
 export function EditAccountModal({
   open,
@@ -46,7 +46,7 @@ export function EditAccountModal({
   onSave,
 }: EditAccountModalProps) {
   const [name, setName] = useState('')
-  const [type, setType] = useState<string>('checking')
+  const [type, setType] = useState<string>('Checking')
   const [balance, setBalance] = useState('')
   const [isJoint, setIsJoint] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)

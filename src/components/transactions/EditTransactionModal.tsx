@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { TrendingUp, TrendingDown } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { TrendingDown, TrendingUp } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAccountStore } from '@/stores/accountStore'
+import { getCategoriesByType, useCategoryStore } from '@/stores/categoryStore'
 import { cn } from '@/lib/utils'
 
 interface EditTransactionModalProps {
@@ -27,7 +28,7 @@ interface EditTransactionModalProps {
   transaction: {
     id: string
     amount: number
-    date: string
+    date: string | Date
     description: string
     category: string
     type: string
@@ -46,27 +47,6 @@ interface EditTransactionModalProps {
   }) => Promise<void>
 }
 
-const EXPENSE_CATEGORIES = [
-  'Housing',
-  'Groceries',
-  'Transportation',
-  'Utilities',
-  'Entertainment',
-  'Healthcare',
-  'Dining Out',
-  'Shopping',
-  'Education',
-  'Other',
-]
-
-const INCOME_CATEGORIES = [
-  'Salary',
-  'Freelance',
-  'Investments',
-  'Gifts',
-  'Other Income',
-]
-
 export function EditTransactionModal({
   open,
   onOpenChange,
@@ -74,6 +54,7 @@ export function EditTransactionModal({
   onSave,
 }: EditTransactionModalProps) {
   const { accounts, fetchAccounts } = useAccountStore()
+  const { categories: customCategories, fetchCategories } = useCategoryStore()
 
   const [type, setType] = useState<'Expense' | 'Income'>('Expense')
   const [amount, setAmount] = useState('')
@@ -88,8 +69,9 @@ export function EditTransactionModal({
   useEffect(() => {
     if (open) {
       fetchAccounts()
+      fetchCategories()
     }
-  }, [open, fetchAccounts])
+  }, [open, fetchAccounts, fetchCategories])
 
   useEffect(() => {
     if (transaction) {
@@ -103,7 +85,7 @@ export function EditTransactionModal({
     }
   }, [transaction])
 
-  const categories = type === 'Expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES
+  const categories = getCategoriesByType(customCategories, type)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -154,9 +136,7 @@ export function EditTransactionModal({
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Edit Transaction</DialogTitle>
-          <DialogDescription>
-            Update the transaction details.
-          </DialogDescription>
+          <DialogDescription>Update the transaction details.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -164,10 +144,7 @@ export function EditTransactionModal({
             <Button
               type="button"
               variant={type === 'Expense' ? 'default' : 'outline'}
-              className={cn(
-                'flex-1',
-                type === 'Expense' && 'bg-red-600 hover:bg-red-700'
-              )}
+              className={cn('flex-1', type === 'Expense' && 'bg-red-600 hover:bg-red-700')}
               onClick={() => {
                 setType('Expense')
                 setCategory('')
@@ -179,10 +156,7 @@ export function EditTransactionModal({
             <Button
               type="button"
               variant={type === 'Income' ? 'default' : 'outline'}
-              className={cn(
-                'flex-1',
-                type === 'Income' && 'bg-green-600 hover:bg-green-700'
-              )}
+              className={cn('flex-1', type === 'Income' && 'bg-green-600 hover:bg-green-700')}
               onClick={() => {
                 setType('Income')
                 setCategory('')
@@ -194,7 +168,7 @@ export function EditTransactionModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="amount">Amount (₪)</Label>
+            <Label htmlFor="amount">Amount (ILS)</Label>
             <Input
               id="amount"
               type="number"
@@ -214,9 +188,9 @@ export function EditTransactionModal({
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
-                {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
+                {categories.map((categoryName) => (
+                  <SelectItem key={categoryName} value={categoryName}>
+                    {categoryName}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -241,9 +215,9 @@ export function EditTransactionModal({
                   <SelectValue placeholder="Select account" />
                 </SelectTrigger>
                 <SelectContent>
-                  {accounts.map((acc) => (
-                    <SelectItem key={acc.id} value={acc.id}>
-                      {acc.name}
+                  {accounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -252,10 +226,7 @@ export function EditTransactionModal({
 
             <div className="space-y-2">
               <Label htmlFor="ownership">Ownership</Label>
-              <Select
-                value={ownership}
-                onValueChange={(v) => setOwnership(v as 'Personal' | 'Joint')}
-              >
+              <Select value={ownership} onValueChange={(value) => setOwnership(value as 'Personal' | 'Joint')}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -269,24 +240,13 @@ export function EditTransactionModal({
 
           <div className="space-y-2">
             <Label htmlFor="date">Date</Label>
-            <Input
-              id="date"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
+            <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
 
-          {error && (
-            <p className="text-sm text-red-600">{error}</p>
-          )}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>

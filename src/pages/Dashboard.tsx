@@ -122,7 +122,7 @@ export function Dashboard() {
   useEffect(() => {
     if (isElectron && currentUser) {
       fetchDashboardData(currentUser.id)
-      fetchRecentTransactions(5)
+      fetchRecentTransactions(currentUser.id, 5)
     }
   }, [currentUser, isElectron, fetchDashboardData, fetchRecentTransactions])
 
@@ -136,9 +136,9 @@ export function Dashboard() {
     : mockMonthlyData
 
   const categoryExpenses: CategoryExpense[] = stats?.expensesByCategory
-    ? Object.entries(stats.expensesByCategory).map(([category, amount]) => ({
+      ? Object.entries(stats.expensesByCategory).map(([category, amount]) => ({
         category,
-        amount,
+        amount: Number(amount),
         color: CATEGORY_COLORS[category] || '#6b7280',
       }))
     : mockCategoryExpenses
@@ -166,7 +166,7 @@ export function Dashboard() {
   const handleQuickAddSuccess = () => {
     if (currentUser) {
       fetchDashboardData(currentUser.id)
-      fetchRecentTransactions(5)
+      fetchRecentTransactions(currentUser.id, 5)
       fetchTransactions()
     }
   }

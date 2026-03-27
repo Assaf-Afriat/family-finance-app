@@ -14,6 +14,7 @@ import { formatILS } from '@/lib/currency'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/toast'
 import { AccountsSkeleton } from '@/components/ui/skeleton'
+import type { Account } from '@/types'
 
 const ACCOUNT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Checking: Wallet,
@@ -37,7 +38,7 @@ export function Accounts() {
   const { addToast } = useToast()
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [isTransferOpen, setIsTransferOpen] = useState(false)
-  const [editAccount, setEditAccount] = useState<typeof accounts[0] | null>(null)
+  const [editAccount, setEditAccount] = useState<Account | null>(null)
 
   const isElectron = typeof window !== 'undefined' && window.electronAPI
 
@@ -80,10 +81,10 @@ export function Accounts() {
     })
   }
 
-  const mockAccounts = [
-    { id: '1', name: 'Main Checking', type: 'Checking', balance: 45000, isJoint: true },
-    { id: '2', name: 'Savings Account', type: 'Savings', balance: 120000, isJoint: true },
-    { id: '3', name: 'Credit Card', type: 'Credit', balance: -5000, isJoint: false },
+  const mockAccounts: Account[] = [
+    { id: '1', name: 'Main Checking', type: 'Checking', balance: 45000, isJoint: true, ownerId: 'mock-user', createdAt: '', updatedAt: '' },
+    { id: '2', name: 'Savings Account', type: 'Savings', balance: 120000, isJoint: true, ownerId: 'mock-user', createdAt: '', updatedAt: '' },
+    { id: '3', name: 'Credit Card', type: 'Credit', balance: -5000, isJoint: false, ownerId: 'mock-user', createdAt: '', updatedAt: '' },
   ]
 
   const displayAccounts = isElectron && accounts.length > 0 ? accounts : mockAccounts
@@ -103,7 +104,7 @@ export function Accounts() {
         </div>
         <div className="flex gap-2">
           {accounts.length >= 2 && (
-            <Button variant="outline" onClick={() => setIsTransferOpen(true)}>
+            <Button data-testid="transfer-button" variant="outline" onClick={() => setIsTransferOpen(true)}>
               <ArrowRightLeft className="me-2 h-4 w-4" />
               {t('transfer.transfer')}
             </Button>
@@ -180,7 +181,7 @@ export function Accounts() {
             const colors = ACCOUNT_COLORS[account.type] || ACCOUNT_COLORS.Checking
             
             return (
-              <Card key={account.id} className="overflow-hidden">
+              <Card key={account.id} className="overflow-hidden" data-testid={`account-card-${account.id}`}>
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">

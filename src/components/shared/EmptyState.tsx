@@ -5,7 +5,6 @@ import {
   PiggyBank,
   BarChart3,
   Repeat,
-  FileText,
   LucideIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
